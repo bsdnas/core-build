@@ -48,8 +48,8 @@ repos += {
 repos += {
     "name": "ports",
     "path": "ports",
-    "url": "https://github.com/freenas/ports.git",
-    "branch": "truenas/13.3-stable"
+    "url": "https://github.com/freebsd/freebsd-ports.git",
+    "branch": "2024Q4"
 }
 
 repos += {
