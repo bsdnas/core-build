@@ -71,6 +71,7 @@ def create_poudriere_config():
     opts = {
         'ports_repo': config['repos'].where(name='ports')['path'],
         'ports_branch': config['repos'].where(name='ports')['branch'],
+        'use_tmpfs': e('${USE_TMPFS}') or 'yes',
         'no_zfs': 'yes'
     }
 
