@@ -158,12 +158,7 @@ make_conf_pkg = {
     "USE_PACKAGE_DEPENDS":          "yes",
     "BATCH":                        "yes",
     "WRKDIRPREFIX":                 "/wrkdirs",
-    "DISABLE_LICENSES":             "yes",
-    "DEBUG_FLAGS":                  "-g",
-    "CFLAGS":                       "+= -g",
-    "STRIP":                        "",
-    "MAKE_ENV":                     "+= DONTSTRIP=yes",
-    "STRIP_CMD":                    "true"
+    "DISABLE_LICENSES":             "yes"
 }
 
 # Configuration for installed NAS
