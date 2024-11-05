@@ -41,7 +41,7 @@ def main():
     sh('ln -s /etc/local ${WORLD_DESTDIR}/usr/local/etc')
     sh('cp -a ${WORLD_DESTDIR}/var/ ${WORLD_DESTDIR}/conf/base/var')
 
-    setfile('${WORLD_DESTDIR}/conf/base/var/md_size', '')
+    setfile('${WORLD_DESTDIR}/conf/base/var/md_size', '4194304')
     setfile('${WORLD_DESTDIR}/conf/base/etc/md_size', '65535')
     setfile('${WORLD_DESTDIR}/conf/base/mnt/md_size', '8192')
 
