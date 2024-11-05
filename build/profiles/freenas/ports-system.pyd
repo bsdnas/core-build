@@ -28,7 +28,10 @@ ports += {
     "name": "sysutils/openzfs",
     "options": ["OPTIONS_FILE_SET+=PYTHON"]
 }
-ports += "dns/bind-tools"
+ports += {
+    "name": "dns/bind-tools",
+    "options": ["OPTIONS_FILE_UNSET+=DNSTAP"]
+}
 ports += "dns/dnsmasq"
 ports += "textproc/jq"
 ports += "archivers/liblz4"
