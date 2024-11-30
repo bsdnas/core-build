@@ -27,7 +27,7 @@ repos += {
     "name": "os",
     "path": "os",
     "url": "https://github.com/dravanet/truenas-os.git",
-    "branch": "truenas/13.3-stable-ctld-live-config"
+    "branch": "truenas/14-stable-dravanet"
 }
 
 repos += {

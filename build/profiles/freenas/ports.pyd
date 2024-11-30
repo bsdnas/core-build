@@ -28,7 +28,6 @@ include("${PROFILE_ROOT}/ports-system.pyd")
 
 port_trees = [
     "${BE_ROOT}/freenas/nas_ports",
-    "${BE_ROOT}/webui/ports",
 ]
 
 binary_packages = [
