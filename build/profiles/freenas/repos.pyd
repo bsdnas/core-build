@@ -27,7 +27,7 @@ repos += {
     "name": "os",
     "path": "os",
     "url": "https://github.com/dravanet/truenas-os.git",
-    "branch": "truenas/14-stable-dravanet"
+    "branch": "freebsd/releng/14.2-dravanet"
 }
 
 repos += {
