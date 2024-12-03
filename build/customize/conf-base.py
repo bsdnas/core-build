@@ -59,7 +59,7 @@ def main():
     sh('ln -s -f /usr/local/bin/ntfs-3g ${WORLD_DESTDIR}/sbin/mount_ntfs')
 
     # tune jemalloc globally
-    sh('ln -s narenas:1 ${WORLD_DESTDIR}/conf/base/etc/malloc.conf')
+    sh('ln -s narenas:1,tcache:false ${WORLD_DESTDIR}/conf/base/etc/malloc.conf')
 
 
 if __name__ == '__main__':
