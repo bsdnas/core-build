@@ -360,7 +360,7 @@ ports += "sysutils/ncdu"
 
 # There ports are all vm related.
 ports += "www/novnc"
-ports += "www/novnc-websockify"
+ports += "devel/py-websockify"
 ports += "net/libvncserver"
 
 ports += "net/aquantia-atlantic-kmod"
