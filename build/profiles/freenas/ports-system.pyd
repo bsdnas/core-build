@@ -250,7 +250,7 @@ ports += {
     "options": ["OPTIONS_FILE_SET+=LIBEVENT2"]
 }
 ports += {
-    "name": "net/netatalk3",
+    "name": "net/netatalk4",
     "options": [
         "OPTIONS_FILE_SET+=PAM",
         "OPTIONS_FILE_SET+=ACL",
