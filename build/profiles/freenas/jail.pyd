@@ -41,11 +41,6 @@ copy += {
 }
 
 copy += {
-    "source": "${BE_ROOT}/py-licenselib",
-    "dest": "/usr/nas_source/py-licenselib"
-}
-
-copy += {
     "source": "${BE_ROOT}/freenas-pkgtools",
     "dest": "/usr/nas_source/freenas-pkgtools"
 }
