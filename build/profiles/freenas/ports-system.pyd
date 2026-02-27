@@ -366,6 +366,11 @@ ports += "net/libvncserver"
 ports += "net/aquantia-atlantic-kmod"
 ports += "net/realtek-re-kmod"
 
+ports += {
+    "name": "security/py-certbot",
+    "options": ["OPTIONS_FILE_UNSET+=MANPAGES"]
+}
+
 if DEBUG:
 	ports += "misc/py-pexpect"
 	ports += {
