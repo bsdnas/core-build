@@ -27,7 +27,7 @@ repos += {
     "name": "os",
     "path": "os",
     "url": "https://github.com/dravanet/truenas-os.git",
-    "branch": "freebsd/releng/14.3-dravanet"
+    "branch": "freebsd/releng/15.0-dravanet"
 }
 
 repos += {
@@ -62,7 +62,7 @@ repos += {
 repos += {
     "name": "py-bsd",
     "path": "py-bsd",
-    "url": "https://github.com/freenas/py-bsd.git",
+    "url": "https://github.com/dravanet/py-bsd.git",
     "branch": "master"
 }
 
