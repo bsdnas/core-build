@@ -100,6 +100,9 @@ kernel_modules = [
     "hptmv",
     "hptnr",
     "hptrr",
+    "kgssapi",
+    "kgssapi_krb5",
+    "rc4",
 ]
 
 # World/kernel build configuration
