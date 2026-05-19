@@ -349,6 +349,11 @@ ports += {
     "options": ["OPTIONS_FILE_UNSET+=MANPAGES"]
 }
 
+ports += {
+    "name": "security/py-asyncssh",
+    "options": ["OPTIONS_FILE_UNSET+=FIDO2"]
+}
+
 if DEBUG:
 	ports += "misc/py-pexpect"
 	ports += {
