@@ -308,7 +308,6 @@ ports += {
 ports += "sysutils/lsof"
 ports += "sysutils/grub2-bhyve"
 ports += "sysutils/beadm"
-ports += "truenas/throttle"
 ports += "misc/xtail"
 ports += "sysutils/edk2@bhyve"
 ports += "benchmarks/fio"
@@ -329,7 +328,6 @@ ports += {
     "options": ["OPTIONS_FILE_UNSET+=CHERRYPY", "OPTIONS_FILE_UNSET+=GEVENT"]
 }
 ports += "misc/mmv"
-ports += "misc/mbuffer"
 ports += {
     "name": "devel/git@lite",
     "package": "git-lite",
