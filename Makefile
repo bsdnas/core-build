@@ -112,15 +112,18 @@ buildenv:
 	@${BUILD_TOOLS}/buildenv.py sh
 
 bootstrap-pkgs:
-	pkg install -y archivers/pxz
 	pkg install -y lang/python3
 	pkg install -y lang/python
 	pkg install -y ports-mgmt/poudriere-devel
 	pkg install -y devel/git
 	pkg install -y devel/gmake
 	pkg install -y archivers/pigz
-	python -m ensurepip
-	python -m pip install six
+# six is installed as a port rather than through pip: a modern python on
+# FreeBSD is marked externally-managed (PEP 668) and pip refuses to write into
+# the system site-packages. A silently failed pip leaves the build without six,
+# and it then breaks at the very end, at create_manifest, when all the packages
+# have already been built.
+	pkg install -y devel/py-six
 
 changelog-nightly:
 	@${BUILD_TOOLS}/changelog-nightly.sh
