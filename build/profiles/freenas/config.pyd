@@ -161,7 +161,14 @@ make_conf_pkg = {
     "USE_PACKAGE_DEPENDS":          "yes",
     "BATCH":                        "yes",
     "WRKDIRPREFIX":                 "/wrkdirs",
-    "DISABLE_LICENSES":             "yes"
+    "DISABLE_LICENSES":             "yes",
+    # Таймаут на бездействие соединения при скачивании distfiles.
+    # По умолчанию ports использует FETCH_ARGS=-Fpr без таймаута: если миррор
+    # отвалится посреди передачи, fetch висит бесконечно и вся сборка встаёт
+    # (на первом прогоне так встали grub2-pcbsd, gobject-introspection и rust).
+    # libfetch применяет -T к отдельной операции чтения, а не ко всей передаче,
+    # поэтому медленная, но живая закачка крупного distfile не рвётся.
+    "FETCH_ARGS":                   "-Fpr -T 120"
 }
 
 # Configuration for installed NAS
