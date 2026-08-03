@@ -310,6 +310,11 @@ def install_files():
     if e("${UNATTENDED_CONFIG}"):
         sh('cp ${UNATTENDED_CONFIG} ${INSTUFS_DESTDIR}/etc/install.conf')
     sh('cp ${BUILD_CONFIG}/templates/cdrom/rc.conf ${INSTUFS_DESTDIR}/etc/')
+    # The devel/cdialog port installs its binary under the name cdialog so as
+    # not to conflict with the old base dialog(1), which is no longer in the
+    # FreeBSD base since 14. /etc/install.sh calls exactly dialog, so we give
+    # it the name it expects.
+    sh('ln -sf cdialog ${INSTUFS_DESTDIR}/usr/local/bin/dialog')
 
 
 def populate_ufsroot():
