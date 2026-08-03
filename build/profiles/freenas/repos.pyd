@@ -26,25 +26,29 @@
 repos += {
     "name": "os",
     "path": "os",
-    "url": "https://github.com/dravanet/truenas-os.git",
-    "branch": "freebsd/releng/15.0-dravanet"
+    "url": "https://github.com/bsdnas/os.git",
+    "branch": "bsdnas"
 }
 
 repos += {
     "name": "freenas",
     "path": "freenas",
-    "url": "https://github.com/dravanet/truenas-middleware.git",
-    "branch": "truenas/13.3-stable-dravanet"
+    "url": "https://github.com/bsdnas/middleware.git",
+    "branch": "bsdnas"
 }
 
 
 repos += {
     "name": "webui",
     "path": "webui",
-    "url": "https://github.com/dravanet/truenas-webui.git",
+    "url": "https://github.com/bsdnas/webui.git",
     "branch": "truenas/13.3-stable"
 }
 
+# Дерево портов намеренно НЕ форкается: берётся квартальная ветка апстрима
+# FreeBSD и поверх накладывается overlay nas_ports из middleware. Собственный
+# форк ports был у iX главным источником гниения — из него вычищать изменения
+# дороже, чем раз в квартал переезжать на новую ветку.
 repos += {
     "name": "ports",
     "path": "ports",
@@ -55,20 +59,20 @@ repos += {
 repos += {
     "name": "freenas-pkgtools",
     "path": "freenas-pkgtools",
-    "url": "https://github.com/freenas/freenas-pkgtools.git",
+    "url": "https://github.com/bsdnas/pkgtools.git",
     "branch": "master"
 }
 
 repos += {
     "name": "py-bsd",
     "path": "py-bsd",
-    "url": "https://github.com/dravanet/py-bsd.git",
+    "url": "https://github.com/bsdnas/py-bsd.git",
     "branch": "master"
 }
 
 repos += {
     "name": "iocage",
     "path": "iocage",
-    "url": "https://github.com/freenas/iocage.git",
+    "url": "https://github.com/bsdnas/iocage.git",
     "branch": "truenas/13.0-u6.3-stable"
 }
