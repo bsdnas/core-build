@@ -27,6 +27,11 @@ freenas_git_rev = sh("git -C ${BE_ROOT}/freenas log -1 --pretty=format:%ct") \
     if exists("${BE_ROOT}/freenas") \
     else "0"
 
+# /etc/install.sh рисует меню через dialog(1). В базе FreeBSD его больше нет:
+# начиная с 14 в базу входит bsddialog, а dialog переехал в порт devel/cdialog
+# (PORTNAME=dialog). Без него установщик уходит в бесконечный цикл, дёргая
+# несуществующую команду, и образ не грузится дальше ldconfig.
+ports += "devel/cdialog"
 ports += "filesystems/openzfs"
 ports += "lang/python3"
 ports += "lang/python"
