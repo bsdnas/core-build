@@ -46,3 +46,6 @@ _BE/
 # Any and all logs
 *.log
 
+
+# upstream watcher journal: local state
+.upstream-seen
