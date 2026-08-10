@@ -49,14 +49,28 @@ portoptions = e('${POUDRIERE_ROOT}/etc/poudriere.d/options')
 
 
 def calculate_make_jobs():
+    """Число одновременных сборщиков poudriere (-J).
+
+    Не путать с числом задач внутри одного порта: в poudriere.conf стоит
+    ALLOW_MAKE_JOBS=yes, поэтому каждый сборщик дополнительно распараллеливает
+    сам порт (MAKE_JOBS_NUMBER). Исходное `ncpu + 1` умножалось на это второе
+    распараллеливание: на 12 ядрах получалось 13 сборщиков, каждый со своим
+    make -j, то есть кратная переподписка процессора и памяти. На машине
+    побольше это уже опасно — сборщики начинают конкурировать за память
+    и упираются в неё, а не в CPU.
+
+    Половина ядер на сборщиков, остальное добирается параллелизмом внутри
+    портов.
+    """
     global makejobs
 
     jobs = sh_str('sysctl -n kern.smp.cpus')
     if not jobs:
         makejobs = 2
+        return
 
-    makejobs = os.environ.get("POUDRIERE_JOBS", int(jobs) + 1)
-    debug('Using {0} make jobs', makejobs)
+    makejobs = os.environ.get("POUDRIERE_JOBS", max(2, int(jobs) // 2))
+    debug('Using {0} builders', makejobs)
 
 
 def create_overlay():
