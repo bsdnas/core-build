@@ -122,6 +122,28 @@ growfs -y /dev/gpt/rootfs
 `growfs` works on a mounted root — this requires neither unmounting nor a
 reboot.
 
+## How to interrupt a build correctly
+
+Killing `make release` halfway through is not enough: poudriere mounts the source
+tree into its jail via nullfs, and the mount survives the death of the process.
+The next build fails a minute in when it tries to clean the directory:
+
+```
+rm: .../objs/jail/usr/src/...: Read-only file system
+==> ERROR: Build failed
+```
+
+The error looks like a build breakage, although it is a leftover from the
+previous run. So after a forced stop:
+
+```
+mount | grep /usr/build/freenas/_BE/objs      # see what is left
+umount /usr/build/freenas/_BE/objs/jail/usr/src
+jls                                           # poudriere jails must not be left hanging
+```
+
+and only then start again.
+
 ## Checks before committing
 
 ```
