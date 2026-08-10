@@ -119,7 +119,37 @@ boot_disk() {
     log "booting from the disk"
 }
 
+# Wipe the beginning and the end of the boot disk so that the installer sees it
+# as empty. Without that the set of dialogs depends on what previous attempts
+# left on the disk, and the blind key sequence stops matching the screens.
+wipe_boot_disk() {
+    local _zvol="/dev/zvol/local-zfs/vm-${VMID}-disk-0"
+    pve "test -e ${_zvol} || exit 1; \
+         dd if=/dev/zero of=${_zvol} bs=1M count=64 conv=notrunc 2>/dev/null; \
+         sz=\$(blockdev --getsz ${_zvol}); \
+         dd if=/dev/zero of=${_zvol} bs=512 seek=\$((sz-2048)) count=2048 conv=notrunc 2>/dev/null" >/dev/null 2>&1 \
+        && log "the boot disk is wiped" \
+        || log "WARNING: the boot disk could not be wiped"
+}
+
 # Walking through the installer. mode: fresh | upgrade
+#
+# The key sequence is blind: the installer draws its dialogs on the video
+# console only, and there is nothing to read them with. That is why the state of
+# the disk has to be known in advance: the set of screens depends on it.
+#
+# fresh (the disk is empty):
+#   Install/Upgrade -> disk selection -> warning (Yes) -> password ->
+#   boot mode (BIOS) -> installation -> OK
+# upgrade (a working installation on the disk):
+#   Install/Upgrade -> disk selection -> Upgrade Install ->
+#   new boot environment -> installation -> OK
+#
+# PITFALL: on an empty disk the "Fresh Install / Upgrade" and "Format the boot
+# device" dialogs are NOT shown. The previous version pressed right+ret in them,
+# landing on the "No" button of the warning, so the installation was silently
+# cancelled, and acceptance reported "the system did not reach the READY state"
+# 15 minutes later.
 run_installer() {
     local _mode="$1"
     key ret;  sleep 12          # Install/Upgrade
@@ -130,9 +160,7 @@ run_installer() {
         key ret; sleep 18       # Install in new boot environment
         key ret; sleep 500      # confirmation + installation
     else
-        key right; sleep 3; key ret; sleep 14   # Fresh Install
-        key right; sleep 3; key ret; sleep 14   # Format the boot device
-        key ret;  sleep 14                      # confirmation
+        key ret;  sleep 14                      # Yes: erase the disk
         text "$NASPW"; sleep 3                  # password
         key tab;  sleep 3
         text "$NASPW"; sleep 3
@@ -203,6 +231,7 @@ verify_preserved() {
 case "${1:-}" in
 install)
     [ $# -ge 2 ] || fail "an ISO name is required"
+    wipe_boot_disk
     boot_iso "$2"; run_installer fresh; boot_disk
     verify && log "ACCEPTANCE PASSED" || fail "the checks did not pass"
     ;;
