@@ -49,3 +49,7 @@ _BE/
 
 # upstream watcher journal: local state
 .upstream-seen
+
+# site build
+site/.build/
+site/.venv/
