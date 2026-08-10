@@ -63,10 +63,13 @@ snapshot() { pve "qm snapshot $VMID $1 --description 'acceptance'" >/dev/null 2>
 CONSOLE_LOG="/tmp/acceptance-${VMID}.console"
 
 console_start() {
-    pve "pkill -f 'UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0' >/dev/null 2>&1; \
-         rm -f ${CONSOLE_LOG}; \
-         (setsid socat -u UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0 \
-            CREATE:${CONSOLE_LOG} >/dev/null 2>&1 &) " >/dev/null 2>&1
+    # One line and no continuations: a multi-line command sent over ssh was
+    # parsed by the remote shell differently than expected, and the capture
+    # silently did not start.
+    pve "rm -f ${CONSOLE_LOG}; setsid socat -u UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0 CREATE:${CONSOLE_LOG} >/dev/null 2>&1 < /dev/null & sleep 1; test -e ${CONSOLE_LOG} && echo ok" >/dev/null 2>&1
+    if [ "$(pve "test -e ${CONSOLE_LOG} && echo ok")" != "ok" ]; then
+        log "WARNING: console capture did not start, diagnostics will be poorer"
+    fi
 }
 
 console_stop() { pve "pkill -f 'UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0'" >/dev/null 2>&1; }
