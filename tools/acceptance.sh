@@ -56,6 +56,39 @@ wait_ready() {
 
 snapshot() { pve "qm snapshot $VMID $1 --description 'acceptance'" >/dev/null 2>&1 && log "snapshot $1 taken"; }
 
+# Serial console capture on the hypervisor. Without it a failed installation
+# looks like "the system did not come up": the real cause stays on the screen,
+# which the automation does not read. The installer image has output enabled on
+# both vidconsole and comconsole (templates/cdrom/loader.conf).
+CONSOLE_LOG="/tmp/acceptance-${VMID}.console"
+
+console_start() {
+    pve "pkill -f 'UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0' >/dev/null 2>&1; \
+         rm -f ${CONSOLE_LOG}; \
+         (setsid socat -u UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0 \
+            CREATE:${CONSOLE_LOG} >/dev/null 2>&1 &) " >/dev/null 2>&1
+}
+
+console_stop() { pve "pkill -f 'UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0'" >/dev/null 2>&1; }
+
+# Look in the console for signs that the installation did not happen. What is
+# checked is the installer's own text, not indirect symptoms.
+console_check_install() {
+    local _out
+    _out=$(pve "grep -aiE 'installation on .* has failed|Traceback \(most recent|FileNotFoundError|No space left on device|cannot open|Abort' ${CONSOLE_LOG} 2>/dev/null | head -5")
+    [ -n "$_out" ] || return 0
+    printf '%s\n' "$_out" | sed 's/^/    /' >&2
+    return 1
+}
+
+# A screenshot is the last line of defence when the console log is empty
+screenshot() {
+    local _name="${1:-fail}"
+    pve "printf 'screendump /tmp/${_name}.ppm\n' | qm monitor $VMID >/dev/null 2>&1; \
+         sleep 2; pnmtopng /tmp/${_name}.ppm > /tmp/${_name}.png 2>/dev/null" >/dev/null 2>&1
+    log "screenshot: ${PVE}:/tmp/${_name}.png"
+}
+
 rollback() {
     pve "qm stop $VMID >/dev/null 2>&1; sleep 6; qm rollback $VMID $1" >/dev/null 2>&1 || fail "the rollback to $1 failed"
     pve "qm set $VMID --boot order=scsi0 >/dev/null 2>&1; qm start $VMID" >/dev/null 2>&1
@@ -70,7 +103,8 @@ boot_iso() {
     pve "qm set $VMID --ide2 $STORAGE:iso/$_iso,media=cdrom" >/dev/null 2>&1
     pve "qm set $VMID --boot order=ide2" >/dev/null 2>&1
     pve "qm start $VMID" >/dev/null 2>&1
-    log "booting from $_iso"
+    console_start
+    log "booting from $_iso (the console is captured into ${CONSOLE_LOG})"
     sleep 200
 }
 
@@ -103,13 +137,25 @@ run_installer() {
         key ret;  sleep 420                     # Boot via BIOS + installation
     fi
     key ret; sleep 8            # OK on the final window
+
+    # Right after the installer and before the reboot: did the installation
+    # fail. Previously a failure was only discovered after 15 minutes of
+    # waiting for READY.
+    if ! console_check_install; then
+        screenshot "install-failed"
+        fail "installation did not complete, see the output above and the screenshot"
+    fi
 }
 
 # Checks on the live system. Exactly what tells "it built" from "it works".
 verify() {
     local _rc=0 _v _pools _shares _shell
 
-    wait_ready 900 || fail "the system never reached the READY state"
+    if ! wait_ready 900; then
+        console_check_install || true
+        screenshot "not-ready"
+        fail "the system did not reach the READY state"
+    fi
 
     _v=$(api system/version)
     log "version: $_v"
