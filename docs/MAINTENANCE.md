@@ -85,6 +85,29 @@ Updating OpenZFS is the riskiest of the four: it touches the on-disk data
 format. The acceptance run must include importing a pool created by the previous
 version.
 
+## Disk space on the build machine
+
+```
+tools/prune-builds.sh            show what will be deleted
+tools/prune-builds.sh --apply    delete, keeping the last 3 builds
+```
+
+Every `make release` leaves behind a directory of roughly 1.3 GB in
+`_BE/release` plus an image next to the object directory, and nothing removes
+them.
+
+This is worth remembering because a full partition does not look like a full
+partition. Once it showed up like this: the build ran for 4 hours 50 minutes and
+failed on seven ports at once — `rust` after 3 hours 39 minutes, `grub2-efi`,
+`lsof`, an Angular build with `NG6002` in primeng and so on. Each failure looked
+like an independent breakage; the real cause was a single one — `ENOSPC` — and it
+was visible only in `dmesg` (`filesystem full on /`) and in one line deep inside
+the Angular log.
+
+The rule: look at `df -h /` before a long build. Less than 40 GB free — clean up
+first. The threshold is not abstract: `rust` alone needs a working directory of a
+dozen gigabytes, and it builds last and for three and a half hours.
+
 ## Checks before committing
 
 ```
