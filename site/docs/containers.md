@@ -1,8 +1,8 @@
 # Containers
 
-**Status: in progress.** Part of this is verified on a running system, part is
-built but not yet verified. The two are marked separately below, because the
-difference matters.
+**Status: works, not yet integrated.** Containers run — both FreeBSD and Linux
+images — but they are managed from the command line; the web interface knows
+nothing about them.
 
 FreeBSD 15 ships a usable OCI stack — `podman` with `ocijail` as the runtime —
 and BSDnas includes it. Containers here are jails underneath, not a virtual
@@ -10,19 +10,15 @@ machine with a Linux kernel.
 
 ## Verified on a running system
 
-Checked live on a BSDnas installation:
+Checked on a freshly installed BSDnas image, not on a machine prepared by hand:
 
-* the kernel has `VIMAGE`, `racct` and `rctl` enabled — the prerequisites for
-  container networking and resource limits;
-* `podman` 5.8.4, `ocijail` 0.6.0 and `containernetworking-plugins` install and
-  run;
-* a FreeBSD container starts and runs.
-
-## Built but not yet verified
-
-`podman`, `ocijail` and `containernetworking-plugins` are now part of the image
-rather than something you install afterwards, and the kernel module needed for
-Linux images has been added. Neither has been through an acceptance run yet.
+* `podman` and `ocijail` ship **in the image** — nothing to install afterwards;
+* the kernel has `VIMAGE`, `racct` and `rctl` enabled;
+* a FreeBSD container runs;
+* a **Linux container runs** — `podman run --os=linux alpine` reports
+  `PRETTY_NAME="Alpine Linux v3.24"`;
+* `kldload linux64` succeeds, pulling in `mqueuefs` — see below for why that
+  sentence exists.
 
 ## Linux images need one kernel module
 
@@ -45,7 +41,8 @@ intent was there — but not `mqueuefs`. The other dependencies
 one was not.
 
 BSDnas adds the `mqueue` module to the kernel build. For a NAS this matters:
-most useful container images are Linux images.
+most useful container images are Linux images. Verified on the built image —
+both modules load, and Linux containers run.
 
 ## Storage must go on a pool
 
@@ -79,5 +76,7 @@ for — it lands under `/mnt`. Use the dataset's natural mountpoint and point
   command line.
 * No acceptance test covering containers, so nothing here is guaranteed to
   survive an upgrade.
-* Linux emulation is enabled by the kernel module but the userland Linux
-  runtime (`linux_enable="YES"`) still needs to be turned on deliberately.
+* Linux emulation still needs to be enabled deliberately:
+  `sysrc linux_enable=YES && service linux start`.
+* Networking beyond the default bridge, port publishing and NAT have not been
+  exercised.

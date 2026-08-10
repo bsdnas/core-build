@@ -15,6 +15,10 @@ been tested.
 * **Upgrade from official TrueNAS CORE 13.3-U1.2 works** and preserves pools,
   datasets, shares, users, passwords and iocage jails. See
   [Upgrading](upgrade.md).
+* **Containers work.** `podman` with `ocijail` runs FreeBSD images and, via
+  FreeBSD's Linux emulation, Linux images too. That required fixing the kernel
+  module list: `linux64.ko` shipped but could not load because its dependency
+  `mqueuefs` was never built.
 * **A configuration-loss bug was found and fixed.** The stock installer copied
   the preserved configuration into `/tmp`, which is a 5 MB tmpfs, and copied a
   24 MB package database and 93 MB of kernel modules into it before deleting
@@ -28,8 +32,9 @@ been tested.
 
 ## In progress
 
-* [Containers](containers.md) — the OCI stack is in the image, Linux emulation
-  is fixed in the build but not yet verified on a built image.
+* [Containers](containers.md) — `podman` and `ocijail` ship in the image and
+  both FreeBSD and Linux containers run, verified on a freshly installed image.
+  What is missing is integration: no web interface, no acceptance coverage.
 * First published release image.
 * An update train, so that upgrades do not require booting from media.
 
