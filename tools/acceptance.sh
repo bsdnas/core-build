@@ -119,7 +119,37 @@ boot_disk() {
     log "загрузка с диска"
 }
 
+# Затереть начало и конец загрузочного диска, чтобы установщик видел его
+# пустым. Без этого набор диалогов зависит от того, что осталось на диске от
+# прошлых попыток, и слепая последовательность клавиш перестаёт совпадать
+# с экранами.
+wipe_boot_disk() {
+    local _zvol="/dev/zvol/local-zfs/vm-${VMID}-disk-0"
+    pve "test -e ${_zvol} || exit 1; \
+         dd if=/dev/zero of=${_zvol} bs=1M count=64 conv=notrunc 2>/dev/null; \
+         sz=\$(blockdev --getsz ${_zvol}); \
+         dd if=/dev/zero of=${_zvol} bs=512 seek=\$((sz-2048)) count=2048 conv=notrunc 2>/dev/null" >/dev/null 2>&1 \
+        && log "загрузочный диск очищен" \
+        || log "ВНИМАНИЕ: очистить загрузочный диск не удалось"
+}
+
 # Прохождение установщика. mode: fresh | upgrade
+#
+# Последовательность клавиш слепая — установщик рисует диалоги только на
+# видеоконсоли, прочитать их нечем. Поэтому важно, чтобы состояние диска было
+# известно заранее: набор экранов от него зависит.
+#
+# fresh (диск пуст):
+#   Install/Upgrade -> выбор диска -> предупреждение (Yes) -> пароль ->
+#   режим загрузки (BIOS) -> установка -> OK
+# upgrade (на диске рабочая установка):
+#   Install/Upgrade -> выбор диска -> Upgrade Install ->
+#   новая загрузочная среда -> установка -> OK
+#
+# ГРАБЛИ: на пустом диске диалогов "Fresh Install / Upgrade" и "Format the
+# boot device" НЕТ. Прежняя версия жала в них right+ret, попадая на кнопку
+# "No" в предупреждении, и установка молча отменялась — а приёмка через
+# 15 минут сообщала "система не пришла в состояние READY".
 run_installer() {
     local _mode="$1"
     key ret;  sleep 12          # Install/Upgrade
@@ -130,9 +160,7 @@ run_installer() {
         key ret; sleep 18       # Install in new boot environment
         key ret; sleep 500      # подтверждение + установка
     else
-        key right; sleep 3; key ret; sleep 14   # Fresh Install
-        key right; sleep 3; key ret; sleep 14   # Format the boot device
-        key ret;  sleep 14                      # подтверждение
+        key ret;  sleep 14                      # Yes: стереть диск
         text "$NASPW"; sleep 3                  # пароль
         key tab;  sleep 3
         text "$NASPW"; sleep 3
@@ -201,6 +229,7 @@ verify_preserved() {
 case "${1:-}" in
 install)
     [ $# -ge 2 ] || fail "нужно имя ISO"
+    wipe_boot_disk
     boot_iso "$2"; run_installer fresh; boot_disk
     verify && log "ПРИЁМКА ПРОЙДЕНА" || fail "проверки не прошли"
     ;;
