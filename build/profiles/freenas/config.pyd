@@ -29,12 +29,12 @@ include("packages.pyd")
 
 profile = {
     "name": "bsdnas",
-    "description": "bsdnas на FreeBSD stable/15",
+    "description": "BSDnas на FreeBSD stable/15",
     "owner": "bsd@22r.tech",
     "status": "active"
 }
 
-kernel_config = "${PROFILE_ROOT}/kernel/BSDNAS.amd64"
+kernel_config = "${PROFILE_ROOT}/kernel/BSDnas.amd64"
 
 kernel_modules = [
     "autofs",
