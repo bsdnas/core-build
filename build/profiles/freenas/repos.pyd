@@ -42,7 +42,7 @@ repos += {
     "name": "webui",
     "path": "webui",
     "url": "https://github.com/bsdnas/webui.git",
-    "branch": "truenas/13.3-stable"
+    "branch": "bsdnas"
 }
 
 # The ports tree is deliberately NOT forked: we take the quarterly branch from
