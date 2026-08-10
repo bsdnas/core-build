@@ -136,11 +136,20 @@ ports += "filesystems/ntfs"
 ports += "filesystems/s3fs"
 ports += "sysutils/smartmontools"
 ports += "net/libdnet"
-ports += {
-    "name": "emulators/open-vm-tools@nox11",
-    "package": "open-vm-tools-nox11",
-}
-ports += "sysutils/xe-guest-utilities"
+# The VMware and Xen guest additions do not build on FreeBSD 15 with the
+# current clang: open-vm-tools fails on an implicit int (`type specifier
+# missing, defaults to int`), which became an error in C23, and
+# xe-guest-utilities fails on -Werror for an unused command line argument.
+# These are defects of the ports themselves in the 2026Q2 branch, not of our
+# build.
+# The loss is only noticeable when installing into VMware or Xen: time
+# synchronisation and a clean shutdown on a hypervisor command go away. Check
+# again when moving to 2026Q3.
+# ports += {
+#     "name": "emulators/open-vm-tools@nox11",
+#     "package": "open-vm-tools-nox11",
+# }
+# ports += "sysutils/xe-guest-utilities"
 ports += "databases/sqlite3"
 ports += {
     "name": "databases/py-alembic",
@@ -313,7 +322,11 @@ ports += {
     ]
 }
 
-ports += "sysutils/lsof"
+# lsof includes kernel headers in userland code, and in sys/systm.h on
+# FreeBSD 15 the types changed (copyright, asprintf, vasprintf), so the port
+# does not build. The base system has fstat(1), sockstat(1) and procstat(1),
+# which cover the same tasks. Check again when moving to 2026Q3.
+# ports += "sysutils/lsof"
 ports += "sysutils/grub2-bhyve"
 ports += "sysutils/beadm"
 ports += "misc/xtail"
