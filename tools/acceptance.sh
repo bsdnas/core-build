@@ -63,10 +63,13 @@ snapshot() { pve "qm snapshot $VMID $1 --description 'автоприёмка'" >
 CONSOLE_LOG="/tmp/acceptance-${VMID}.console"
 
 console_start() {
-    pve "pkill -f 'UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0' >/dev/null 2>&1; \
-         rm -f ${CONSOLE_LOG}; \
-         (setsid socat -u UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0 \
-            CREATE:${CONSOLE_LOG} >/dev/null 2>&1 &) " >/dev/null 2>&1
+    # Одной строкой и без переносов: многострочная команда через ssh
+    # разбиралась удалённой оболочкой не так, как ожидалось, и запись
+    # молча не начиналась.
+    pve "rm -f ${CONSOLE_LOG}; setsid socat -u UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0 CREATE:${CONSOLE_LOG} >/dev/null 2>&1 < /dev/null & sleep 1; test -e ${CONSOLE_LOG} && echo ok" >/dev/null 2>&1
+    if [ "$(pve "test -e ${CONSOLE_LOG} && echo ok")" != "ok" ]; then
+        log "ВНИМАНИЕ: запись консоли не началась — диагностика будет беднее"
+    fi
 }
 
 console_stop() { pve "pkill -f 'UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0'" >/dev/null 2>&1; }
