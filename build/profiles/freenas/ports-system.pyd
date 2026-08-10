@@ -367,3 +367,10 @@ if DEBUG:
 	}
 	ports += "devel/ctags"
 	ports += "devel/py-pyflakes"
+
+# OCI-контейнеры. Проверено вживую на стенде: контейнер FreeBSD запускается,
+# Linux-образы — только с модулем mqueue (см. kernel_modules в config.pyd).
+# Хранилище podman нужно уводить на датасет пула: /var в системе — tmpfs.
+ports += "sysutils/podman"
+ports += "sysutils/ocijail"
+ports += "net/containernetworking-plugins"

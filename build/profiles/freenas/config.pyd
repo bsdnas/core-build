@@ -28,13 +28,13 @@ include("ports.pyd")
 include("packages.pyd")
 
 profile = {
-    "name": "truenas13",
-    "description": "TrueNAS 13",
-    "owner": "dev@ixsystems.com",
+    "name": "bsdnas",
+    "description": "bsdnas на FreeBSD stable/15",
+    "owner": "bsd@22r.tech",
     "status": "active"
 }
 
-kernel_config = "${PROFILE_ROOT}/kernel/TRUENAS.amd64"
+kernel_config = "${PROFILE_ROOT}/kernel/BSDNAS.amd64"
 
 kernel_modules = [
     "autofs",
@@ -63,6 +63,12 @@ kernel_modules = [
     "linux64",
     "linux_common",
     "mac_ntpd",
+    # Зависимость linux(4): MODULE_DEPEND(linux, mqueuefs). Без неё linux64.ko
+    # присутствует в образе, но не грузится ("depends on mqueuefs - not
+    # available"), и Linux-образы OCI не запускаются вовсе. Остальные
+    # зависимости эмуляции (sysvmsg/sysvsem/sysvshm, netlink) вкомпилированы
+    # в ядро, а эта — нет.
+    "mqueue",
     "msdosfs_iconv",
     "ispfw/ispfw",
     "opensolaris",
