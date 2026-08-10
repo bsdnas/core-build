@@ -167,6 +167,12 @@ make_conf_pkg = {
     "USE_PACKAGE_DEPENDS":          "yes",
     "BATCH":                        "yes",
     "WRKDIRPREFIX":                 "/wrkdirs",
+    # Jobs inside a single port. The total load is the number of builders
+    # (-J, half of the cores) multiplied by this number: on 24 cores that is
+    # 12 x 4 = 48 jobs, a twofold oversubscription. It is useful because jobs
+    # often wait for the disk, but an unlimited make -j in every builder
+    # already leads to contention for memory instead of a speedup.
+    "MAKE_JOBS_NUMBER":             "4",
     "DISABLE_LICENSES":             "yes",
     # Idle timeout for the connection while fetching distfiles.
     # By default ports uses FETCH_ARGS=-Fpr with no timeout: if a mirror drops

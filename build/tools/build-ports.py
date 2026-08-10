@@ -49,14 +49,28 @@ portoptions = e('${POUDRIERE_ROOT}/etc/poudriere.d/options')
 
 
 def calculate_make_jobs():
+    """Number of concurrent poudriere builders (-J).
+
+    Not to be confused with the number of jobs inside a single port:
+    poudriere.conf has ALLOW_MAKE_JOBS=yes, so every builder additionally
+    parallelises the port itself (MAKE_JOBS_NUMBER). The original `ncpu + 1`
+    was multiplied by that second level of parallelism: on 12 cores it gave 13
+    builders, each with its own make -j, that is a manyfold oversubscription of
+    CPU and memory. On a larger machine this is already dangerous: the builders
+    start competing for memory and hit that limit rather than the CPU one.
+
+    Half of the cores go to builders, the rest is taken up by the parallelism
+    inside the ports.
+    """
     global makejobs
 
     jobs = sh_str('sysctl -n kern.smp.cpus')
     if not jobs:
         makejobs = 2
+        return
 
-    makejobs = os.environ.get("POUDRIERE_JOBS", int(jobs) + 1)
-    debug('Using {0} make jobs', makejobs)
+    makejobs = os.environ.get("POUDRIERE_JOBS", max(2, int(jobs) // 2))
+    debug('Using {0} builders', makejobs)
 
 
 def create_overlay():
