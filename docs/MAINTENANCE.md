@@ -108,6 +108,20 @@ The rule: look at `df -h /` before a long build. Less than 40 GB free — clean 
 first. The threshold is not abstract: `rust` alone needs a working directory of a
 dozen gigabytes, and it builds last and for three and a half hours.
 
+Give the build machine **at least 320 GB**. 120 GB is not workable — it is
+enough for exactly one build with no margin. On a virtual machine the disk can
+be extended on the fly; the build does not need to be interrupted:
+
+```
+qm disk resize <vmid> scsi0 +200G          # on the hypervisor
+camcontrol reprobe da0                     # in the guest system
+gpart recover da0 ; gpart resize -i 5 da0
+growfs -y /dev/gpt/rootfs
+```
+
+`growfs` works on a mounted root — this requires neither unmounting nor a
+reboot.
+
 ## Checks before committing
 
 ```
