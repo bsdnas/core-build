@@ -56,6 +56,39 @@ wait_ready() {
 
 snapshot() { pve "qm snapshot $VMID $1 --description 'автоприёмка'" >/dev/null 2>&1 && log "снимок $1 снят"; }
 
+# Запись последовательной консоли на гипервизоре. Без неё отказ установки
+# выглядит как "система не поднялась": настоящая причина остаётся на экране,
+# который автоматика не читает. В образе установщика включён вывод и на
+# vidconsole, и на comconsole (templates/cdrom/loader.conf).
+CONSOLE_LOG="/tmp/acceptance-${VMID}.console"
+
+console_start() {
+    pve "pkill -f 'UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0' >/dev/null 2>&1; \
+         rm -f ${CONSOLE_LOG}; \
+         (setsid socat -u UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0 \
+            CREATE:${CONSOLE_LOG} >/dev/null 2>&1 &) " >/dev/null 2>&1
+}
+
+console_stop() { pve "pkill -f 'UNIX-CONNECT:/var/run/qemu-server/${VMID}.serial0'" >/dev/null 2>&1; }
+
+# Ищем в консоли признаки того, что установка не состоялась. Проверяется
+# именно текст установщика, а не косвенные симптомы.
+console_check_install() {
+    local _out
+    _out=$(pve "grep -aiE 'installation on .* has failed|Traceback \(most recent|FileNotFoundError|No space left on device|cannot open|Abort' ${CONSOLE_LOG} 2>/dev/null | head -5")
+    [ -n "$_out" ] || return 0
+    printf '%s\n' "$_out" | sed 's/^/    /' >&2
+    return 1
+}
+
+# Снимок экрана — последняя линия обороны, когда в консоли пусто
+screenshot() {
+    local _name="${1:-fail}"
+    pve "printf 'screendump /tmp/${_name}.ppm\n' | qm monitor $VMID >/dev/null 2>&1; \
+         sleep 2; pnmtopng /tmp/${_name}.ppm > /tmp/${_name}.png 2>/dev/null" >/dev/null 2>&1
+    log "снимок экрана: ${PVE}:/tmp/${_name}.png"
+}
+
 rollback() {
     pve "qm stop $VMID >/dev/null 2>&1; sleep 6; qm rollback $VMID $1" >/dev/null 2>&1 || fail "откат на $1 не удался"
     pve "qm set $VMID --boot order=scsi0 >/dev/null 2>&1; qm start $VMID" >/dev/null 2>&1
@@ -70,7 +103,8 @@ boot_iso() {
     pve "qm set $VMID --ide2 $STORAGE:iso/$_iso,media=cdrom" >/dev/null 2>&1
     pve "qm set $VMID --boot order=ide2" >/dev/null 2>&1
     pve "qm start $VMID" >/dev/null 2>&1
-    log "загрузка с $_iso"
+    console_start
+    log "загрузка с $_iso (консоль пишется в ${CONSOLE_LOG})"
     sleep 200
 }
 
@@ -103,13 +137,24 @@ run_installer() {
         key ret;  sleep 420                     # Boot via BIOS + установка
     fi
     key ret; sleep 8            # OK на итоговом окне
+
+    # Сразу после установщика, до перезагрузки: не упала ли установка.
+    # Раньше отказ обнаруживался только через 15 минут ожидания READY.
+    if ! console_check_install; then
+        screenshot "install-failed"
+        fail "установка не выполнена — см. вывод выше и снимок экрана"
+    fi
 }
 
 # Проверки живой системы. Именно то, что отличает "собралось" от "работает".
 verify() {
     local _rc=0 _v _pools _shares _shell
 
-    wait_ready 900 || fail "система не пришла в состояние READY"
+    if ! wait_ready 900; then
+        console_check_install || true
+        screenshot "not-ready"
+        fail "система не пришла в состояние READY"
+    fi
 
     _v=$(api system/version)
     log "версия: $_v"
