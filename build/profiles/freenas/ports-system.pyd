@@ -368,3 +368,11 @@ if DEBUG:
 	}
 	ports += "devel/ctags"
 	ports += "devel/py-pyflakes"
+
+# OCI containers. Verified live on the test bench: a FreeBSD container starts,
+# Linux images only with the mqueue module (see kernel_modules in config.pyd).
+# The podman storage has to be moved onto a pool dataset: /var in the system is
+# a tmpfs.
+ports += "sysutils/podman"
+ports += "sysutils/ocijail"
+ports += "net/containernetworking-plugins"
