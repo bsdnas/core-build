@@ -93,7 +93,22 @@ screenshot() {
 }
 
 rollback() {
-    pve "qm stop $VMID >/dev/null 2>&1; sleep 6; qm rollback $VMID $1" >/dev/null 2>&1 || fail "откат на $1 не удался"
+    local _err
+    pve "qm stop $VMID >/dev/null 2>&1; sleep 6"
+    _err=$(pve "qm rollback $VMID $1 2>&1" | grep -viE "^perl:|locale|are supported" | tail -2)
+
+    # ZFS не умеет откатываться через голову: если после нужного снимка есть
+    # более новые, откат невозможен, пока их не удалить. Прежняя версия просто
+    # сообщала "откат не удался" и заставляла выяснять причину руками.
+    case "$_err" in
+    *"not most recent snapshot"*)
+        printf '%s\n' "$_err" | sed 's/^/    /' >&2
+        log "  подсказка: удалите более новые снимки — qm listsnapshot $VMID, затем qm delsnapshot $VMID <имя>"
+        fail "откат на $1 невозможен: есть более новые снимки"
+        ;;
+    esac
+    [ -n "$_err" ] && printf '%s\n' "$_err" | sed 's/^/    /' >&2
+
     pve "qm set $VMID --boot order=scsi0 >/dev/null 2>&1; qm start $VMID" >/dev/null 2>&1
     log "стенд возвращён в точку $1"
 }
