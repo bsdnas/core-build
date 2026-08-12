@@ -139,13 +139,27 @@ boot_disk() {
 # прошлых попыток, и слепая последовательность клавиш перестаёт совпадать
 # с экранами.
 wipe_boot_disk() {
-    local _zvol="/dev/zvol/local-zfs/vm-${VMID}-disk-0"
-    pve "test -e ${_zvol} || exit 1; \
-         dd if=/dev/zero of=${_zvol} bs=1M count=64 conv=notrunc 2>/dev/null; \
-         sz=\$(blockdev --getsz ${_zvol}); \
-         dd if=/dev/zero of=${_zvol} bs=512 seek=\$((sz-2048)) count=2048 conv=notrunc 2>/dev/null" >/dev/null 2>&1 \
-        && log "загрузочный диск очищен" \
-        || log "ВНИМАНИЕ: очистить загрузочный диск не удалось"
+    local _ds _zvol _sz
+    # Путь к устройству ищем, а не угадываем: у zvol произвольная глубина
+    # вложенности (у нас rpool/data/vm-147-disk-0), и шаблон /dev/zvol/*/...
+    # её не покрывает.
+    _ds=$(pve "zfs list -H -o name -t volume 2>/dev/null | grep -m1 'vm-${VMID}-disk-0\$'")
+    if [ -z "$_ds" ]; then
+        log "ВНИМАНИЕ: загрузочный диск не найден среди zvol — очистка пропущена"
+        return 0
+    fi
+    _zvol="/dev/zvol/${_ds}"
+
+    _sz=$(pve "blockdev --getsz ${_zvol} 2>/dev/null")
+    if [ -z "$_sz" ]; then
+        log "ВНИМАНИЕ: ${_zvol} недоступен — очистка пропущена"
+        return 0
+    fi
+
+    # Начало (таблица разделов и загрузочный код) и конец (резервная GPT)
+    pve "dd if=/dev/zero of=${_zvol} bs=1M count=64 conv=notrunc 2>/dev/null; \
+         dd if=/dev/zero of=${_zvol} bs=512 seek=\$((${_sz}-2048)) count=2048 conv=notrunc 2>/dev/null" >/dev/null 2>&1
+    log "загрузочный диск очищен (${_ds})"
 }
 
 # Прохождение установщика. mode: fresh | upgrade
