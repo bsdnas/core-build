@@ -40,8 +40,9 @@ been tested.
 
 ## Not done, and honestly so
 
-* **The published build is unsigned**, and it is a development build rather
-  than a stable release.
+* The published build is a development build rather than a stable release.
+  It is signed, but the signing key lives on a workstation rather than a
+  hardware token.
 * **One test machine.** Every measurement on this site comes from the same
   virtual stand. No physical hardware, no varied disk controllers, no real
   workloads.
