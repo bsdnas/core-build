@@ -144,6 +144,23 @@ jls                                           # poudriere jails must not be left
 
 and only then start again.
 
+## Do not edit a script that is currently running
+
+Bash reads a script as it executes it, by offsets within the file. Editing it on
+the fly shifts the offsets, and the shell carries on reading from the wrong
+place:
+
+```
+tools/acceptance.sh: line 255: syntax error near unexpected token `|'
+```
+
+The file itself is syntactically intact — `bash -n` passes. Caught during a live
+acceptance run: the verdict had been issued before execution reached the
+corrupted spot, but it could just as easily have broken off midway and produced
+a false result.
+
+The rule: edit a long acceptance run only after it finishes — or work on a copy.
+
 ## Checks before committing
 
 ```
