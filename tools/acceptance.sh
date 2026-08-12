@@ -93,7 +93,23 @@ screenshot() {
 }
 
 rollback() {
-    pve "qm stop $VMID >/dev/null 2>&1; sleep 6; qm rollback $VMID $1" >/dev/null 2>&1 || fail "the rollback to $1 failed"
+    local _err
+    pve "qm stop $VMID >/dev/null 2>&1; sleep 6"
+    _err=$(pve "qm rollback $VMID $1 2>&1" | grep -viE "^perl:|locale|are supported" | tail -2)
+
+    # ZFS cannot roll back over an intermediate snapshot: if there are newer
+    # snapshots after the wanted one, a rollback is impossible until they are
+    # deleted. The previous version merely reported "rollback failed" and left
+    # the reason to be worked out by hand.
+    case "$_err" in
+    *"not most recent snapshot"*)
+        printf '%s\n' "$_err" | sed 's/^/    /' >&2
+        log "  hint: delete the newer snapshots, qm listsnapshot $VMID, then qm delsnapshot $VMID <name>"
+        fail "rollback to $1 is impossible: newer snapshots exist"
+        ;;
+    esac
+    [ -n "$_err" ] && printf '%s\n' "$_err" | sed 's/^/    /' >&2
+
     pve "qm set $VMID --boot order=scsi0 >/dev/null 2>&1; qm start $VMID" >/dev/null 2>&1
     log "bench returned to point $1"
 }
