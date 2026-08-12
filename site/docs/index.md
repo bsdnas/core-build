@@ -13,6 +13,8 @@ few years.
     here has been measured on a test machine, and nothing has been measured
     anywhere else. Do not put your only copy of anything on it.
 
+    The first build is available on the [Download](download.md) page.
+
 ## What actually works
 
 Verified on a test stand, not claimed from theory:
@@ -37,8 +39,8 @@ the one about `zpool upgrade`, which is worth reading *before* you run it.
 
 Honesty is cheaper than support tickets:
 
-* **No public release image yet.** Build it yourself — see
-  [Building from source](building.md).
+* The published image is a **development build** — see [Download](download.md).
+  It is unsigned, and verified on one virtual machine only.
 * The SSH service does not start by itself after an upgrade; enable it again.
 * The iocage plugin index is no longer maintained upstream, so plugins must
   come from your own index or be installed by hand.

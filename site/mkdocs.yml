@@ -31,6 +31,7 @@ theme:
 
 nav:
   - Overview: index.md
+  - Download: download.md
   - Install: install.md
   - Upgrading from TrueNAS CORE: upgrade.md
   - Containers: containers.md

@@ -1,9 +1,9 @@
 # Installing
 
-!!! info "No published image yet"
-    There is no public release image at this point. Build one from source —
-    see [Building from source](building.md) — or wait until the first release
-    is published. This page describes installing the image once you have it.
+!!! info "Development build"
+    The published image is an early development build — get it from the
+    [Download](download.md) page, or build one yourself from
+    [source](building.md).
 
 ## Requirements
 
