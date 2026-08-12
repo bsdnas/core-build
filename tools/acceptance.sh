@@ -139,13 +139,27 @@ boot_disk() {
 # as empty. Without that the set of dialogs depends on what previous attempts
 # left on the disk, and the blind key sequence stops matching the screens.
 wipe_boot_disk() {
-    local _zvol="/dev/zvol/local-zfs/vm-${VMID}-disk-0"
-    pve "test -e ${_zvol} || exit 1; \
-         dd if=/dev/zero of=${_zvol} bs=1M count=64 conv=notrunc 2>/dev/null; \
-         sz=\$(blockdev --getsz ${_zvol}); \
-         dd if=/dev/zero of=${_zvol} bs=512 seek=\$((sz-2048)) count=2048 conv=notrunc 2>/dev/null" >/dev/null 2>&1 \
-        && log "the boot disk is wiped" \
-        || log "WARNING: the boot disk could not be wiped"
+    local _ds _zvol _sz
+    # The device path is searched for rather than guessed: a zvol can sit at
+    # an arbitrary nesting depth (say rpool/data/vm-100-disk-0), and the
+    # /dev/zvol/*/... pattern does not cover it.
+    _ds=$(pve "zfs list -H -o name -t volume 2>/dev/null | grep -m1 'vm-${VMID}-disk-0\$'")
+    if [ -z "$_ds" ]; then
+        log "WARNING: the boot disk was not found among the zvols, the wipe is skipped"
+        return 0
+    fi
+    _zvol="/dev/zvol/${_ds}"
+
+    _sz=$(pve "blockdev --getsz ${_zvol} 2>/dev/null")
+    if [ -z "$_sz" ]; then
+        log "WARNING: ${_zvol} is not available, the wipe is skipped"
+        return 0
+    fi
+
+    # The beginning (partition table and boot code) and the end (backup GPT)
+    pve "dd if=/dev/zero of=${_zvol} bs=1M count=64 conv=notrunc 2>/dev/null; \
+         dd if=/dev/zero of=${_zvol} bs=512 seek=\$((${_sz}-2048)) count=2048 conv=notrunc 2>/dev/null" >/dev/null 2>&1
+    log "boot disk wiped (${_ds})"
 }
 
 # Walking through the installer. mode: fresh | upgrade
