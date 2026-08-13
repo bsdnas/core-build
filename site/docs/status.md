@@ -27,7 +27,12 @@ been tested.
   configuration. The fix checks every copy and verifies the configuration
   database by checksum.
 * **Upstream tracking is automated** — four watchers, running weekly.
-* **First public build released** — see [Download](download.md).
+* **First public build released** — see [Download](download.md), signed with
+  the project key.
+* **Updates without boot media work.** The project runs its own update train:
+  an installed system finds the new build, downloads it, applies it and
+  reboots. Measured end to end on the stand — the system came back on the new
+  version in about three minutes.
 * **Legal cleanup** — files covered by the TrueNAS Enterprise licence were
   removed at the outset; branding is the project's own.
 
@@ -36,13 +41,16 @@ been tested.
 * [Containers](containers.md) — `podman` and `ocijail` ship in the image and
   both FreeBSD and Linux containers run, verified on a freshly installed image.
   What is missing is integration: no web interface, no acceptance coverage.
-* An update train, so that upgrades do not require booting from media.
 
 ## Not done, and honestly so
 
 * The published build is a development build rather than a stable release.
   It is signed, but the signing key lives on a workstation rather than a
   hardware token.
+* **Update manifests are not signed.** The update client fetches them over
+  HTTPS and verifies each package against the checksum in the manifest, so a
+  corrupted download is caught — but the manifest itself is trusted on the
+  strength of TLS alone. Signing it is the next step there.
 * **One test machine.** Every measurement on this site comes from the same
   virtual stand. No physical hardware, no varied disk controllers, no real
   workloads.

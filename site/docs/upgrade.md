@@ -91,6 +91,16 @@ iocage fetch -r 13.3-RELEASE -s archive.freebsd.org -d old-releases/amd64
 This is one of the reasons staying on 13.3 is uncomfortable: the platform is
 functionally frozen.
 
+## After the first upgrade, no more media
+
+Booting from an image is needed once — to come across from TrueNAS CORE. After
+that the system follows the project's update train and updates itself from
+System → Update. Measured on the stand: found the new build, downloaded it,
+applied it and rebooted in about three minutes.
+
+The manifests are served over HTTPS but are not cryptographically signed yet;
+each package is verified against the checksum in the manifest.
+
 ## Known rough edges
 
 * **The SSH service does not come up by itself after an upgrade** — enable it

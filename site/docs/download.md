@@ -60,6 +60,16 @@ step and has not been taken yet.
 * [Containers](containers.md) — running FreeBSD and Linux images
 * [Project status](status.md) — what is done, what is not, what was never tested
 
+## Newer builds arrive without a download
+
+The ISO on this page is a fixed point in time. Once the system is installed it
+tracks the project's update train and can update itself — System → Update in
+the web interface, or `midclt call -job update.update '{"reboot": true}'` from
+the shell. No media, no second download.
+
+The train usually carries a newer build than the ISO published here, because
+the ISO is only refreshed for milestones.
+
 ## Older builds
 
 There are none. This is the first.

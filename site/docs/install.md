@@ -7,15 +7,42 @@
 
 ## Requirements
 
-The same hardware requirements as TrueNAS CORE 13.3, because it is the same
-system on a newer base:
+Do not confuse these with the requirements for *building* BSDnas — a build host
+needs far more memory and disk. This page is about running the system.
 
-* 64-bit x86 processor
-* 8 GB RAM (the installer warns below 7 GB but continues)
+* 64-bit x86 processor (`amd64` only; there is no ARM image)
 * a dedicated boot device — the installer takes the whole device
 * separate disks for storage; do not put pools on the boot device
 
-The build targets `amd64` only. There is no ARM image.
+### Memory
+
+**Measured, not inherited from anyone's recommendation:**
+
+| RAM | result |
+|---|---|
+| 8 GB | boots, reaches `READY`; the idle system uses under 2 GB |
+| 4 GB | boots, reaches `READY` in 40 seconds |
+| 2 GB | boots, reaches `READY` in 40 seconds |
+
+The installer warns below 7 GB and continues; that warning is inherited from
+TrueNAS and does not reflect what the system needs to run.
+
+**4 GB is enough for the system to boot and run.** That is the honest floor,
+and it is worth understanding what the rest of the memory is actually for:
+
+* **ZFS ARC** — the read cache. ZFS will use whatever is free, and this is
+  where extra memory turns into throughput. A machine with 4 GB works; a
+  machine with 32 GB serves the same files faster because more of them are
+  in RAM.
+* **Working processes** — SMB and NFS sessions, jails, containers, replication
+  and scrubs all take memory in proportion to what you actually run.
+* **Deduplication** — if you enable it, it needs a great deal of RAM and is a
+  different conversation entirely.
+
+So the number to plan by comes from the workload, not from the boot
+requirement. The figures in the table were measured on an idle system with no
+pool under load: they tell you what it takes to start, not what it takes to
+serve.
 
 ## Fresh install
 

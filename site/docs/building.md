@@ -18,10 +18,17 @@ Practical requirements, measured rather than guessed:
 | | |
 |---|---|
 | FreeBSD | `stable/15`, matching the target |
-| CPU | 24 cores is comfortable; fewer works, slower |
-| RAM | 40 GB. Rust alone will exhaust 16 GB |
+| CPU | any number of cores; more is faster |
+| RAM | 32 GB is known to work — see the note below |
 | Disk | **320 GB.** 120 GB is not enough |
 | Swap | 16 GB on a real partition |
+
+About memory, precisely: 16 GB with 1 GB swap **fails** — `rust` is killed by
+the out-of-memory handler. 32 GB with 12 parallel builders completes; that is
+the measurement the table reports. It is conservative today, because `rust`,
+`llvm`, `gcc` and `node` now build on disk rather than in tmpfs, which removed
+the largest consumer — but no build below 32 GB has been attempted. Memory
+scales with the number of parallel builders (`-J`, half the cores by default).
 
 About the disk: each `make release` leaves roughly 1.3 GB behind in
 `_BE/release` and nothing removes it. When the partition filled during
