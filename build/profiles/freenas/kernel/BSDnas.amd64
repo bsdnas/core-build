@@ -1,5 +1,5 @@
 #
-# TRUENAS -- FreeBSD/amd64 config file tune for TrueNAS
+# BSDnas -- FreeBSD/amd64 kernel configuration
 #
 # For more information on this file, please read the config(5) manual page,
 # and/or the handbook section on Kernel Configuration Files:
@@ -454,7 +454,7 @@ device		viawd		# VIA south bridge watchdog timer
 device		wbwd		# Winbond watchdog timer
 ## End FreeNAS specific section
 
-## TrueNAS specific modifications
+## NAS-specific modifications
 # PF for HA
 device		pf
 device		pflog
@@ -467,4 +467,4 @@ device		ntb_hw_intel	# Intel NTB hardware driver
 device		ntb_hw_plx	# PLX NTB hardware driver
 device		ioat		# Intel I/OAT DMA engine
 
-## End TrueNAS specific section
+## End NAS-specific section

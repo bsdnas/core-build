@@ -15,20 +15,24 @@
 #   acceptance.sh snapshot <имя>           снять точку возврата
 #   acceptance.sh rollback <имя>           вернуть стенд в точку возврата
 #
-# Переменные окружения (значения по умолчанию — наш стенд):
-#   PVE      ssh-адрес гипервизора            root@proxmox.example
-#   VMID     тестовая VM                      147
+# Стенд задаётся переменными окружения — своих адресов в скрипте нет:
+#   PVE      ssh-адрес гипервизора Proxmox    root@proxmox.example
+#   VMID     номер тестовой VM                147
 #   NASIP    адрес поднятой системы           nas.example
-#   NASPW    пароль root                      СКРЫТО
-#   STORAGE  хранилище с ISO                  nfs-kmdz
+#   NASPW    пароль root тестовой системы     (обязательно задать)
+#   STORAGE  хранилище Proxmox с образами     local
+#
+# Пример:
+#   PVE=root@10.0.0.5 VMID=200 NASIP=10.0.0.50 NASPW=secret \
+#     tools/acceptance.sh install BSDnas-15-MASTER-....iso
 
 set -u
 
-PVE="${PVE:-root@proxmox.example}"
+PVE="${PVE:?укажите ssh-адрес гипервизора, например root@proxmox.example}"
 VMID="${VMID:-147}"
-NASIP="${NASIP:-nas.example}"
-NASPW="${NASPW:-СКРЫТО}"
-STORAGE="${STORAGE:-nfs-kmdz}"
+NASIP="${NASIP:?укажите адрес тестовой системы}"
+NASPW="${NASPW:?укажите пароль root тестовой системы}"
+STORAGE="${STORAGE:-local}"
 SSH="ssh -o BatchMode=yes -o ConnectTimeout=10"
 
 log()  { printf '%s  %s\n' "$(date +%H:%M:%S)" "$*"; }
