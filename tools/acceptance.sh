@@ -15,20 +15,24 @@
 #   acceptance.sh snapshot <name>          take a rollback point
 #   acceptance.sh rollback <name>          return the bench to a rollback point
 #
-# Environment variables (the defaults describe a test bench):
-#   PVE      ssh address of the hypervisor     root@proxmox.example
-#   VMID     the test virtual machine          100
+# The bench is set by environment variables, no addresses of our own are here:
+#   PVE      ssh address of the Proxmox host   root@proxmox.example
+#   VMID     number of the test VM             147
 #   NASIP    address of the running system     nas.example
-#   NASPW    root password                     REDACTED
-#   STORAGE  the storage holding the ISO       nfs-example
+#   NASPW    root password of the test system  (must be set)
+#   STORAGE  Proxmox storage holding images    local
+#
+# Example:
+#   PVE=root@10.0.0.5 VMID=200 NASIP=10.0.0.50 NASPW=secret \
+#     tools/acceptance.sh install BSDnas-15-MASTER-....iso
 
 set -u
 
-PVE="${PVE:-root@proxmox.example}"
+PVE="${PVE:?specify the ssh address of the hypervisor, for example root@proxmox.example}"
 VMID="${VMID:-147}"
-NASIP="${NASIP:-nas.example}"
-NASPW="${NASPW:-REDACTED}"
-STORAGE="${STORAGE:-nfs-kmdz}"
+NASIP="${NASIP:?specify the address of the test system}"
+NASPW="${NASPW:?specify the root password of the test system}"
+STORAGE="${STORAGE:-local}"
 SSH="ssh -o BatchMode=yes -o ConnectTimeout=10"
 
 log()  { printf '%s  %s\n' "$(date +%H:%M:%S)" "$*"; }

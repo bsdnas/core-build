@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Batch installation script for FreeNAS/TrueNAS.
+# Batch installation script for BSDnas.
 # This is intended to be run as part of the build tests.
 # It takes one option, and at least one argument.
 # The one option is for an install.conf file location,
