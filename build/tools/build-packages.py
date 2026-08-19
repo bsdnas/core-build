@@ -116,7 +116,12 @@ def build_packages():
 def create_manifest(pkgs):
     info('Creating package manifests')
     date = int(time.time())
-    train = e('${TRAIN}') or 'FreeNAS'
+    # Пустой TRAIN раньше уводил сборку в поезд с чужим именем — и это
+    # молча, поэтому лучше упасть: имя поезда попадает в манифест, по нему
+    # клиенты ищут обновления.
+    train = e('${TRAIN}')
+    if not train:
+        raise ValueError('TRAIN не задан: имя поезда обновлений придумывать нельзя')
     sh(
         "env PYTHONPATH=${tooldir}/usr/local/lib",
         "${tooldir}/usr/local/bin/create_manifest",
