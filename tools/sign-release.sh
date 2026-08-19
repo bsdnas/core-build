@@ -13,17 +13,14 @@
 # Key: BSDnas release signing <bsd@22r.tech>, ed25519, fingerprint
 #   58528D1CDBDAAF7B01ED2BBE1E2F7A792066322D
 #
-# The secret part is kept offline; the passphrase is in
-# the passphrase lives in a file whose path is not documented.
-# Honestly about the limits: this scheme is not what a full compromise of this machine would
-# protect against; it protects against the key file alone leaking (a stray copy
-# into the repository, a backup, an archive handed over). The next step, once
-# the project stops being a one-person affair, is a hardware token.
+# The passphrase is passed through the environment only: BSDNAS_PASSFILE points
+# at a file holding the phrase. Where the key and that file live is not
+# documented.
 
 set -eu
 
 KEYID="${BSDNAS_SIGNKEY:-1E2F7A792066322D}"
-PASSFILE="${BSDNAS_PASSFILE:-${BSDNAS_PASSFILE:?set BSDNAS_PASSFILE}}"
+PASSFILE="${BSDNAS_PASSFILE:?set BSDNAS_PASSFILE (a file holding the passphrase)}"
 DIR="${1:-}"
 
 [ -n "$DIR" ] && [ -d "$DIR" ] || { echo "specify the directory holding the image" >&2; exit 1; }
