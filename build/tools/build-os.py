@@ -40,6 +40,7 @@ kernconf_debug = objdir(e('${KERNCONF}-DEBUG'))
 kernlog = objdir('logs/buildkernel')
 kerndebuglog = objdir('logs/buildkernel-debug')
 worldlog = objdir('logs/buildworld')
+pkgbaselog = objdir('logs/buildpkgbase')
 makejobs = None
 
 
@@ -139,6 +140,37 @@ def buildworld():
     )
 
 
+def build_pkgbase():
+    """Собрать базу системы как pkg-пакеты (pkgbase).
+
+    Это то же самое, что installworld раскладывает по каталогам, только
+    упакованное: FreeBSD 15 умеет это штатной целью packages. Пакеты нужны,
+    чтобы установленная система знала свою базу через pkg — иначе обновлять
+    её приходится распаковкой всего образа целиком.
+
+    MODULES_OVERRIDE обязателен: ядро собирается с урезанным списком модулей,
+    а packages без него пытается ставить все модули дерева и падает на первом
+    несобранном.
+    """
+    info('Building base packages from ${OS_ROOT}')
+    info('Log file: {0}', pkgbaselog)
+    modules = ' '.join(config['kernel_modules'])
+    sh(
+        "env -u DEBUG -u MAKEFLAGS MAKEOBJDIRPREFIX=${OBJDIR}",
+        "make",
+        "-j {0}".format(makejobs),
+        "-C ${OS_ROOT}",
+        "__MAKE_CONF={0}".format(makeconfbuild),
+        "KERNCONF=${KERNCONF}",
+        "KERNCONFDIR=${OBJDIR}",
+        "MODULES_OVERRIDE='{0}'".format(modules),
+        "NO_INSTALLEXTRAKERNELS=yes",
+        "REPODIR=${PKGBASE_REPO}",
+        "packages",
+        log=pkgbaselog
+    )
+
+
 def installworld(destdir, worldlog, distriblog, conf="build"):
     info('Installing world in {0}', destdir)
     info('Log file: {0}', worldlog)
@@ -207,3 +239,7 @@ if __name__ == '__main__':
     buildworld()
     buildkernel(e('${KERNCONF}'), config['kernel_modules'], kernlog)
     buildkernel(e('${KERNCONF}-DEBUG'), config['kernel_modules'], kerndebuglog)
+    if env('SKIP_PKGBASE'):
+        info('Skipping base packages as instructed by setting SKIP_PKGBASE')
+    else:
+        build_pkgbase()

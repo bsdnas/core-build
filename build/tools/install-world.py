@@ -26,9 +26,10 @@
 #
 #####################################################################
 
+import glob
 import sys
 import os
-from utils import sh, e, objdir, info, import_function
+from utils import sh, sh_str, e, objdir, info, import_function
 
 
 installworldlog = objdir('logs/dest-installworld')
@@ -37,6 +38,66 @@ installkernellog = objdir('logs/dest-installkernel')
 installkerneldebuglog = objdir('logs/dest-installkerneldebug')
 installworld = import_function('build-os', 'installworld')
 installkernel = import_function('build-os', 'installkernel')
+
+# Пакеты базы, которых в нашем образе быть не должно. Исходники и компилятор
+# в систему хранения не ставятся (проверено сверкой файлов установленной
+# системы с содержимым пакетов), а метапакеты set-* тянут именно их.
+PKGBASE_EXCLUDE = (
+    'FreeBSD-src', 'FreeBSD-src-sys',
+    'FreeBSD-clang', 'FreeBSD-clang-dev', 'FreeBSD-lld', 'FreeBSD-lldb',
+)
+
+
+def register_base_packages(destdir):
+    """Взять уже разложенную базу под учёт pkg.
+
+    installworld раскладывает мир файлами, и pkg про него ничего не знает:
+    обновить такую базу можно только распаковав образ целиком. Здесь те же
+    самые файлы ставятся ещё раз, но уже пакетами, — система получает базу
+    под учётом pkg и дальше обновляется дельтами.
+
+    Порядок важен: это должно случиться ДО customize/conf-base.py, который
+    копирует /var в /conf/base. Иначе база pkg останется в /var, а /var в
+    установленной системе — tmpfs, разливаемая из шаблона при каждой
+    загрузке, и учёт пакетов не переживёт первую же перезагрузку.
+    """
+    repo = e('${PKGBASE_REPO}')
+    # Каталог внутри репозитория называется по ABI (FreeBSD:15:amd64), а тот
+    # определяется деревом, а не нашей конфигурацией, — поэтому ищем, а не
+    # угадываем. latest — симлинк, который make packages ставит на свежую
+    # сборку.
+    candidates = sorted(glob.glob(os.path.join(repo, '*', 'latest')))
+    if not candidates:
+        info('No base package repository in {0}, skipping registration', repo)
+        return
+    latest = candidates[0]
+
+    conf_dir = os.path.join(destdir, 'usr/local/etc/pkg/repos')
+    sh('mkdir -p {0}'.format(conf_dir))
+    with open(os.path.join(conf_dir, 'bsdnas-base.conf'), 'w') as fh:
+        fh.write(
+            'bsdnas-base: {\n'
+            '  url: "file://%s",\n'
+            '  enabled: yes,\n'
+            '  signature_type: none,\n'
+            '  priority: 10\n'
+            '}\n' % latest
+        )
+
+    info('Registering base packages from {0}', latest)
+    packages = sh_str(
+        'pkg -r {0} rquery -r bsdnas-base %n'.format(destdir)
+    ).split()
+    wanted = [p for p in packages
+              if p not in PKGBASE_EXCLUDE
+              and not p.endswith('-dbg')
+              and not p.startswith('FreeBSD-set-')]
+    if not wanted:
+        info('Base package repository is empty, skipping registration')
+        return
+    sh('env ASSUME_ALWAYS_YES=yes pkg -r {0} install -y -r bsdnas-base {1}'.format(
+        destdir, ' '.join(wanted)), log=objdir('logs/dest-pkgbase-install'))
+    info('Base registered: {0} packages', len(wanted))
 
 
 if __name__ == '__main__':
@@ -58,3 +119,7 @@ if __name__ == '__main__':
         kodir="/boot/kernel-debug",
         conf="run"
     )
+    if e('${SKIP_PKGBASE}'):
+        info('Skipping base package registration as instructed by setting SKIP_PKGBASE')
+    else:
+        register_base_packages(e('${WORLD_DESTDIR}'))
