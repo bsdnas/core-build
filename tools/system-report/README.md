@@ -39,6 +39,12 @@ tools read the JSON out of the file, so the summary never gets in the way.
 
 ## What is in it
 
+What the system is installed on gets its own section, because it decides what
+an upgrade can do at all: the filesystem of the root (ZFS or the UFS that
+pre-ZFS FreeNAS installs still use), the pool topology, which partitions carry
+it, and whether the media is removable — a pair of USB sticks is a different
+conversation from a mirror of disks.
+
 Versions (product, kernel, OpenZFS), hardware (board, CPU, memory, disk models
 and sizes), storage (pools with their features, datasets, boot environments,
 partitioning), the installed packages with versions, running services, and the
