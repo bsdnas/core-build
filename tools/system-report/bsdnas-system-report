@@ -144,6 +144,67 @@ def hardware():
     return data
 
 
+def boot_media():
+    """What the system itself is installed on.
+
+    This is the first thing to know when someone asks whether their machine can
+    be upgraded: a pool of disks, a single disk, a UFS install from the FreeNAS
+    days, or a pair of USB sticks — the answer differs for each, and boot
+    environments only exist on ZFS at all.
+    """
+    root_fs = root_dev = None
+    for line in (run("mount") or "").splitlines():
+        if " on / " in line:
+            root_dev = line.split(" on / ")[0]
+            fstype = line.rsplit("(", 1)[-1].split(",")[0]
+            root_fs = fstype.strip(") ")
+            break
+
+    data = {"root_filesystem": root_fs, "root_device": root_dev, "removable": False}
+
+    if root_fs == "zfs":
+        pool = (root_dev or "").split("/")[0]
+        data["pool"] = pool
+        status = run("zpool", "status", pool) or ""
+        topology = []
+        for line in status.splitlines():
+            stripped = line.strip()
+            for kind in ("mirror-", "raidz1-", "raidz2-", "raidz3-"):
+                if stripped.startswith(kind):
+                    topology.append(stripped.split()[0])
+        data["topology"] = topology or ["single"]
+        data["members"] = [
+            l.split()[0] for l in status.splitlines()
+            if l.startswith("\t  ") and l.split()
+            and l.split()[0] not in (pool, "NAME")
+            and not l.split()[0].startswith(("mirror-", "raidz1-", "raidz2-", "raidz3-",
+                                             "logs", "cache", "spares", "special"))
+        ]
+    elif root_fs:
+        # a UFS root is what pre-ZFS FreeNAS installs look like, and what a
+        # boot-environment update cannot work with
+        data["topology"] = ["ufs"]
+
+    # USB sticks report through umass; that plus a removable flag is enough to
+    # tell "installed on a stick" from "installed on a disk"
+    usb = []
+    for name in (run("sysctl", "-n", "kern.disks") or "").split():
+        info = run("geom", "disk", "list", name) or ""
+        descr = ""
+        for line in info.splitlines():
+            if "descr:" in line:
+                descr = line.split("descr:", 1)[1].strip()
+        if run("camcontrol", "devlist") and name.startswith("da"):
+            for line in (run("camcontrol", "devlist") or "").splitlines():
+                if "(%s," % name in line or "(%s)" % name in line:
+                    if "umass" in line:
+                        usb.append({"device": name, "descr": descr})
+    if usb:
+        data["removable"] = True
+        data["usb_disks"] = usb
+    return data
+
+
 def storage():
     pools = []
     for name in (run("zpool", "list", "-H", "-o", "name") or "").splitlines():
@@ -180,6 +241,7 @@ def storage():
         "datasets": datasets,
         "snapshot_count": len((run("zfs", "list", "-H", "-o", "name", "-t", "snapshot") or "").splitlines()),
         "boot_environments": run("beadm", "list") or run("bectl", "list"),
+        "boot_media": boot_media(),
         "partitioning": run("gpart", "show"),
     }
 
@@ -312,6 +374,10 @@ def summary(report):
         "pools:      %s" % (", ".join("%s (%s, %s)" % (p["name"], p.get("size"), p.get("health"))
                                       for p in st["pools"]) or "none"),
         "datasets:   %d, snapshots: %d" % (len(st["datasets"]), st["snapshot_count"]),
+        "installed on: %s%s" % (
+            "%s (%s)" % (st["boot_media"].get("root_filesystem") or "?",
+                         ", ".join(st["boot_media"].get("topology") or ["?"])),
+            " on removable media" if st["boot_media"].get("removable") else ""),
         "packages:   %d" % report["packages"]["count"],
         "services:   %d running" % len(report["services"]["running_rc_scripts"]),
     ]
