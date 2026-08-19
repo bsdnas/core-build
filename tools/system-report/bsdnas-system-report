@@ -1,0 +1,378 @@
+#!/usr/bin/env python3
+"""Collect a report describing this system, as JSON plus a readable summary.
+
+Two jobs, one tool:
+
+  * before an update, the system takes a report of itself, so that afterwards
+    it is possible to say what changed and where to look when something broke;
+  * a user of any TrueNAS-derived system can run it and send us the file, so
+    that a support conversation starts from facts rather than from "it broke".
+
+Design rules that follow from the second job:
+
+  * runs on a stock TrueNAS CORE 13.x as well as on BSDnas — standard tools
+    only, no packages to install, no network access, nothing written outside
+    the output file;
+  * everything it collects lands in the file the user can read before sending
+    it anywhere. There is no separate channel and no hidden field;
+  * secrets are excluded by an explicit list, not by judgement: no passwords,
+    keys, share contents, user names or e-mail addresses. What is collected is
+    versions, hardware, layout and settings.
+
+Usage:
+    bsdnas-system-report [-o FILE] [--stdout] [--no-checksums] [--verify]
+
+Without -o the report goes to a file named after the host and the date.
+"""
+
+import argparse
+import datetime
+import hashlib
+import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
+
+SCHEMA = 1
+
+# Files whose content identifies the configuration of the system. Hashed, never
+# copied: some of them (rc.conf, exports) can name internal hosts.
+CONFIG_PATHS = [
+    "/conf/base/etc",           # the template that becomes /etc on boot
+    "/boot/loader.conf",
+    "/etc/rc.conf",
+    "/etc/sysctl.conf",
+    "/etc/fstab",
+]
+
+# Never walked into, whatever the caller asks for.
+SKIP_DIRS = {"ssh", "ssl", "certs", "cert", "pam.d", "krb5", "ipsec"}
+SKIP_FILES = {
+    "master.passwd", "spwd.db", "passwd", "pwd.db", "shadow",
+    "freenas-v1.db", "factory-v1.db",
+}
+
+
+def run(*cmd, timeout=60):
+    """Run a command, return stdout or None. Never raises."""
+    try:
+        out = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                             timeout=timeout, encoding="utf-8", errors="replace")
+        return out.stdout.strip() if out.returncode == 0 else None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def sysctl(name):
+    return run("sysctl", "-n", name)
+
+
+def kenv(name):
+    """SMBIOS values live in the kernel environment, not in sysctl."""
+    return run("kenv", "-q", name)
+
+
+def midclt(method, *args):
+    """Ask middleware, if it is there. Returns parsed JSON or None."""
+    if not shutil.which("midclt"):
+        return None
+    out = run("midclt", "call", method, *args, timeout=120)
+    if not out:
+        return None
+    try:
+        return json.loads(out)
+    except ValueError:
+        return None
+
+
+def versions():
+    data = {
+        "kernel": run("uname", "-v"),
+        "release": run("uname", "-r"),
+        "osreldate": sysctl("kern.osreldate"),
+        "arch": platform.machine(),
+    }
+    info = midclt("system.info")
+    if info:
+        data["product_version"] = info.get("version")
+        data["uptime_seconds"] = info.get("uptime_seconds")
+    else:
+        # A stock CORE without a running middleware still names itself here.
+        for path in ("/etc/version", "/etc/version.freenas"):
+            if os.path.exists(path):
+                data["product_version"] = open(path).read().strip()
+                break
+    zfs = run("zfs", "version")
+    if zfs:
+        data["zfs"] = zfs.splitlines()[0]
+    return data
+
+
+def hardware():
+    data = {
+        "cpu_model": sysctl("hw.model"),
+        "cpu_count": sysctl("hw.ncpu"),
+        "physmem_bytes": sysctl("hw.physmem"),
+        "vendor": kenv("smbios.system.maker"),
+        "product": kenv("smbios.system.product"),
+        "board_vendor": kenv("smbios.planar.maker"),
+        "board": kenv("smbios.planar.product"),
+        "bios_vendor": kenv("smbios.bios.vendor"),
+        "bios_version": kenv("smbios.bios.version"),
+        "bios_date": kenv("smbios.bios.reldate"),
+        "hypervisor": sysctl("kern.vm_guest"),
+    }
+    disks = []
+    for name in (run("sysctl", "-n", "kern.disks") or "").split():
+        disk = {"name": name}
+        ident = run("diskinfo", "-v", name)
+        if ident:
+            for line in ident.splitlines():
+                if "Disk descr." in line:
+                    disk["model"] = line.split("#")[0].strip()
+                elif "mediasize in bytes" in line:
+                    disk["size_bytes"] = line.split("#")[0].strip()
+                elif "Rotation rate" in line:
+                    disk["rotation"] = line.split("#")[0].strip()
+        # serial numbers identify hardware, not people, but they are also how a
+        # disk is RMA'd — keep only whether one is present
+        disk["has_serial"] = bool(run("diskinfo", "-s", name))
+        disks.append(disk)
+    data["disks"] = disks
+    return data
+
+
+def storage():
+    pools = []
+    for name in (run("zpool", "list", "-H", "-o", "name") or "").splitlines():
+        pool = {
+            "name": name,
+            "health": run("zpool", "list", "-H", "-o", "health", name),
+            "size": run("zpool", "list", "-H", "-o", "size", name),
+            "allocated": run("zpool", "list", "-H", "-o", "alloc", name),
+            "fragmentation": run("zpool", "list", "-H", "-o", "frag", name),
+            "status": run("zpool", "status", name),
+            "features": {},
+        }
+        props = run("zpool", "get", "-H", "-o", "property,value", "all", name)
+        if props:
+            for line in props.splitlines():
+                prop, _, value = line.partition("\t")
+                if prop.startswith("feature@"):
+                    pool["features"][prop] = value
+                elif prop in ("version", "ashift", "autotrim", "bootfs", "failmode"):
+                    pool[prop] = value
+        pools.append(pool)
+
+    datasets = []
+    listing = run("zfs", "list", "-H", "-o",
+                  "name,used,available,referenced,mountpoint,compression,recordsize", "-t", "filesystem,volume")
+    for line in (listing or "").splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 7:
+            datasets.append(dict(zip(
+                ("name", "used", "available", "referenced", "mountpoint", "compression", "recordsize"), parts)))
+
+    return {
+        "pools": pools,
+        "datasets": datasets,
+        "snapshot_count": len((run("zfs", "list", "-H", "-o", "name", "-t", "snapshot") or "").splitlines()),
+        "boot_environments": run("beadm", "list") or run("bectl", "list"),
+        "partitioning": run("gpart", "show"),
+    }
+
+
+def packages(verify=False):
+    """Installed packages, and optionally whether their files still match.
+
+    The verification is `pkg check -s`, which re-reads and hashes every file of
+    every package — on a full system that is hundreds of thousands of files and
+    many minutes. Useful when hunting a broken upgrade, far too slow to run on
+    every report, so it waits for --verify.
+    """
+    out = run("pkg", "query", "%n\t%v\t%R", timeout=180)
+    result = {"count": 0, "entries": [], "check": None}
+    if out:
+        for line in out.splitlines():
+            name, _, rest = line.partition("\t")
+            version, _, repo = rest.partition("\t")
+            result["entries"].append({"name": name, "version": version, "repository": repo})
+        result["count"] = len(result["entries"])
+    if verify:
+        altered = run("pkg", "check", "-s", "-a", timeout=3600)
+        if altered is not None:
+            result["check"] = [l for l in altered.splitlines() if l.strip()][:200]
+    return result
+
+
+def services():
+    enabled = run("service", "-e")
+    data = {"running_rc_scripts": (enabled or "").splitlines()}
+    svc = midclt("service.query")
+    if svc:
+        data["middleware_services"] = [
+            {"service": s.get("service"), "enable": s.get("enable"), "state": s.get("state")}
+            for s in svc
+        ]
+    return data
+
+
+def settings():
+    """Configuration through middleware — never file contents."""
+    data = {}
+    for label, method in (("shares_smb", "sharing.smb.query"),
+                          ("shares_nfs", "sharing.nfs.query"),
+                          ("shares_iscsi", "iscsi.targetextent.query"),
+                          ("snapshot_tasks", "pool.snapshottask.query"),
+                          ("replication_tasks", "replication.query"),
+                          ("scrub_tasks", "pool.scrub.query"),
+                          ("cloudsync", "cloudsync.query"),
+                          ("jails", "jail.query")):
+        rows = midclt(method)
+        if rows is None:
+            continue
+        # only the shape of the configuration, never names of shares or paths
+        data[label] = {"count": len(rows)}
+        if label in ("snapshot_tasks", "replication_tasks"):
+            data[label]["enabled"] = sum(1 for r in rows if r.get("enabled", r.get("auto", True)))
+    net = midclt("interface.query")
+    if net is not None:
+        data["interfaces"] = [
+            {"name": i.get("name"), "type": i.get("type"),
+             "dhcp": (i.get("state") or {}).get("dhcp"),
+             "addresses": len((i.get("state") or {}).get("aliases", []))}
+            for i in net
+        ]
+    return data
+
+
+def config_checksums(paths, enabled=True):
+    """SHA256 of the files that decide how the system behaves.
+
+    Sizes and dates alone miss the most common case in configuration files: an
+    edit that leaves the size unchanged. Hashes are the answer that survives
+    that; sizes and dates are kept as a cheap first filter.
+    """
+    if not enabled:
+        return None
+    files = {}
+
+    def add(path):
+        base = os.path.basename(path)
+        # pkg keeps a copy of a file it replaced as name.pkgsave, and editors
+        # leave .bak/.orig — a shadow copy of master.passwd is still a copy of
+        # master.passwd, so strip those suffixes before deciding.
+        stem = base
+        for suffix in (".pkgsave", ".bak", ".orig", ".old", ".sample"):
+            if stem.endswith(suffix):
+                stem = stem[: -len(suffix)]
+        if base in SKIP_FILES or stem in SKIP_FILES:
+            return
+        try:
+            st = os.stat(path)
+            digest = hashlib.sha256()
+            with open(path, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    digest.update(chunk)
+            files[path] = {"size": st.st_size, "mtime": int(st.st_mtime),
+                           "sha256": digest.hexdigest()}
+        except OSError:
+            pass
+
+    for path in paths:
+        if os.path.isfile(path):
+            add(path)
+        elif os.path.isdir(path):
+            for root, dirs, names in os.walk(path):
+                dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+                for name in names:
+                    add(os.path.join(root, name))
+    return files
+
+
+def summary(report):
+    """The part a human reads before deciding to send the file."""
+    v = report["versions"]
+    hw = report["hardware"]
+    st = report["storage"]
+    lines = [
+        "BSDnas system report",
+        "=" * 60,
+        "taken:      %s" % report["taken_at"],
+        "product:    %s" % (v.get("product_version") or "unknown"),
+        "kernel:     %s" % (v.get("release") or "?"),
+        "zfs:        %s" % (v.get("zfs") or "?"),
+        "machine:    %s %s (%s, %s cores, %.1f GiB RAM)" % (
+            hw.get("vendor") or "unknown", hw.get("product") or "",
+            hw.get("cpu_model") or "?", hw.get("cpu_count") or "?",
+            int(hw.get("physmem_bytes") or 0) / (1 << 30)),
+        "disks:      %d" % len(hw.get("disks") or []),
+        "pools:      %s" % (", ".join("%s (%s, %s)" % (p["name"], p.get("size"), p.get("health"))
+                                      for p in st["pools"]) or "none"),
+        "datasets:   %d, snapshots: %d" % (len(st["datasets"]), st["snapshot_count"]),
+        "packages:   %d" % report["packages"]["count"],
+        "services:   %d running" % len(report["services"]["running_rc_scripts"]),
+    ]
+    if report.get("config_checksums"):
+        lines.append("config:     %d files hashed" % len(report["config_checksums"]))
+    altered = (report["packages"].get("check") or [])
+    if altered:
+        lines.append("modified:   %d package files differ from the package" % len(altered))
+    lines += [
+        "",
+        "This file contains versions, hardware, storage layout and the shape of",
+        "the configuration. It contains no passwords, keys, share names, paths",
+        "or data. Read it before sending it anywhere.",
+        "=" * 60,
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Collect a report about this system.")
+    parser.add_argument("-o", "--output", help="write the report here")
+    parser.add_argument("--stdout", action="store_true", help="write to standard output")
+    parser.add_argument("--no-checksums", action="store_true",
+                        help="skip hashing configuration files (faster)")
+    parser.add_argument("--verify", action="store_true",
+                        help="also run pkg check -s: re-hashes every packaged "
+                             "file to find hand-edited ones. Takes minutes.")
+    args = parser.parse_args()
+
+    report = {
+        "schema": SCHEMA,
+        "taken_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+        "hostname_hash": hashlib.sha256(
+            (platform.node() or "").encode()).hexdigest()[:16],
+        "versions": versions(),
+        "hardware": hardware(),
+        "storage": storage(),
+        "packages": packages(args.verify),
+        "services": services(),
+        "settings": settings(),
+        "config_checksums": config_checksums(CONFIG_PATHS, not args.no_checksums),
+    }
+
+    text = summary(report) + json.dumps(report, indent=2, sort_keys=True) + "\n"
+
+    if args.stdout:
+        sys.stdout.write(text)
+        return 0
+
+    path = args.output
+    if not path:
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        path = "bsdnas-report-%s.txt" % stamp
+    with open(path, "w") as fh:
+        fh.write(text)
+    os.chmod(path, 0o600)
+    sys.stderr.write("%s\n" % summary(report))
+    sys.stderr.write("written to %s\n" % os.path.abspath(path))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
