@@ -26,13 +26,16 @@ APPLY=0
 cd "$BE/release" || exit 1
 
 # Сортируем по фактическому времени, а не по метке в имени каталога.
-total=$(ls -1dt */ 2>/dev/null | wc -l | tr -d ' ')
+# Считаем ТОЛЬКО каталоги сборок BSDnas-15-MASTER-*: 2026-08-19 скрипт
+# посчитал «последними» служебные каталоги (Nightlies-Update) и удалил
+# каталог свежей сборки вместе с ISO.
+total=$(ls -1dt BSDnas-15-MASTER-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$total" -le "$KEEP" ]; then
     echo "сборок: ${total}, оставляем ${KEEP} — удалять нечего"
     exit 0
 fi
 
-doomed=$(ls -1dt */ 2>/dev/null | sed 's,/$,,' | tail -n +$((KEEP + 1)))
+doomed=$(ls -1dt BSDnas-15-MASTER-*/ 2>/dev/null | sed 's,/$,,' | tail -n +$((KEEP + 1)))
 freed=$(echo "$doomed" | while read -r d; do
     [ -n "$d" ] && du -sk "$d" 2>/dev/null | cut -f1
 done | awk '{s += $1} END {printf "%d", s / 1048576}')
