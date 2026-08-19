@@ -7,7 +7,7 @@ not drawn by hand — they are taken straight out of a vt(4) console font that
 ships with FreeBSD, so the shapes are the ones the system itself renders.
 
 Usage:
-    render-logo.py [font.fnt] [gap] [drop]
+    render_logo.py [font.fnt] [gap] [drop]
 
     font    vt font file, default /usr/share/vt/fonts/terminus-b32.fnt (bold)
     gap     columns between the eyes, default 14
