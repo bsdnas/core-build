@@ -116,7 +116,12 @@ def build_packages():
 def create_manifest(pkgs):
     info('Creating package manifests')
     date = int(time.time())
-    train = e('${TRAIN}') or 'FreeNAS'
+    # An empty TRAIN used to send the build into a train with someone else's
+    # name, and silently at that, so failing is better: the train name goes
+    # into the manifest and clients look for updates by it.
+    train = e('${TRAIN}')
+    if not train:
+        raise ValueError('TRAIN is not set: the update train name must not be invented')
     sh(
         "env PYTHONPATH=${tooldir}/usr/local/lib",
         "${tooldir}/usr/local/bin/create_manifest",
