@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+"""Compare two system reports and print what changed between them.
+
+This is the half of the exercise that pays: a report on its own is a wall of
+numbers, but two of them — one from before an update and one from after —
+answer the only question that matters when something broke, namely what is
+different now.
+
+Usage:
+    bsdnas-report-diff BEFORE AFTER [--all]
+
+Reports are the files written by bsdnas-system-report; the JSON is read out of
+them, so the human summary at the top does not get in the way.
+"""
+
+import argparse
+import json
+import sys
+
+
+def load(path):
+    text = open(path).read()
+    start = text.index("{")
+    return json.loads(text[start:])
+
+
+def diff_versions(before, after, out):
+    changes = []
+    for key in sorted(set(before) | set(after)):
+        if key == "uptime_seconds":
+            continue
+        old, new = before.get(key), after.get(key)
+        if old != new:
+            changes.append("  %-18s %s -> %s" % (key + ":", old or "-", new or "-"))
+    if changes:
+        out.append("versions")
+        out.extend(changes)
+
+
+def diff_packages(before, after, out):
+    old = {p["name"]: p["version"] for p in before.get("entries", [])}
+    new = {p["name"]: p["version"] for p in after.get("entries", [])}
+    added = sorted(set(new) - set(old))
+    removed = sorted(set(old) - set(new))
+    updated = sorted(n for n in set(old) & set(new) if old[n] != new[n])
+    if not (added or removed or updated):
+        return
+    out.append("packages: %d added, %d removed, %d updated" % (len(added), len(removed), len(updated)))
+    for name in added:
+        out.append("  + %s %s" % (name, new[name]))
+    for name in removed:
+        out.append("  - %s %s" % (name, old[name]))
+    for name in updated:
+        out.append("  ~ %s %s -> %s" % (name, old[name], new[name]))
+
+
+def diff_configs(before, after, out):
+    old = before or {}
+    new = after or {}
+    if not old and not new:
+        return
+    added = sorted(set(new) - set(old))
+    removed = sorted(set(old) - set(new))
+    changed = sorted(p for p in set(old) & set(new)
+                     if old[p].get("sha256") != new[p].get("sha256"))
+    if not (added or removed or changed):
+        return
+    out.append("configuration files: %d added, %d removed, %d changed"
+               % (len(added), len(removed), len(changed)))
+    for path in added:
+        out.append("  + %s" % path)
+    for path in removed:
+        out.append("  - %s" % path)
+    for path in changed:
+        # a size that stayed the same while the hash moved is exactly the case
+        # dates and sizes would have missed
+        same_size = old[path].get("size") == new[path].get("size")
+        out.append("  ~ %s%s" % (path, "   (same size, different content)" if same_size else ""))
+
+
+def diff_storage(before, after, out):
+    old_pools = {p["name"]: p for p in before.get("pools", [])}
+    new_pools = {p["name"]: p for p in after.get("pools", [])}
+    lines = []
+    for name in sorted(set(old_pools) | set(new_pools)):
+        if name not in new_pools:
+            lines.append("  - pool %s is gone" % name)
+            continue
+        if name not in old_pools:
+            lines.append("  + pool %s appeared (%s)" % (name, new_pools[name].get("health")))
+            continue
+        old, new = old_pools[name], new_pools[name]
+        for key in ("health", "size", "bootfs", "ashift"):
+            if old.get(key) != new.get(key):
+                lines.append("  ~ pool %s %s: %s -> %s" % (name, key, old.get(key), new.get(key)))
+        old_feat, new_feat = old.get("features", {}), new.get("features", {})
+        for feature in sorted(set(old_feat) | set(new_feat)):
+            if old_feat.get(feature) != new_feat.get(feature):
+                lines.append("  ~ pool %s %s: %s -> %s"
+                             % (name, feature, old_feat.get(feature), new_feat.get(feature)))
+
+    old_ds = {d["name"]: d for d in before.get("datasets", [])}
+    new_ds = {d["name"]: d for d in after.get("datasets", [])}
+    for name in sorted(set(new_ds) - set(old_ds)):
+        lines.append("  + dataset %s" % name)
+    for name in sorted(set(old_ds) - set(new_ds)):
+        lines.append("  - dataset %s" % name)
+    for name in sorted(set(old_ds) & set(new_ds)):
+        for key in ("compression", "recordsize", "mountpoint"):
+            if old_ds[name].get(key) != new_ds[name].get(key):
+                lines.append("  ~ dataset %s %s: %s -> %s"
+                             % (name, key, old_ds[name].get(key), new_ds[name].get(key)))
+    if lines:
+        out.append("storage")
+        out.extend(lines)
+
+
+def diff_services(before, after, out):
+    old = set(before.get("running_rc_scripts", []))
+    new = set(after.get("running_rc_scripts", []))
+    if old == new:
+        return
+    out.append("services: %d running -> %d running" % (len(old), len(new)))
+    for name in sorted(new - old):
+        out.append("  + %s" % name)
+    for name in sorted(old - new):
+        out.append("  - %s  <- stopped being started" % name)
+
+
+def diff_settings(before, after, out):
+    lines = []
+    for key in sorted(set(before) | set(after)):
+        old, new = before.get(key), after.get(key)
+        if old != new:
+            lines.append("  ~ %s: %s -> %s" % (key, json.dumps(old, sort_keys=True),
+                                               json.dumps(new, sort_keys=True)))
+    if lines:
+        out.append("settings")
+        out.extend(lines)
+
+
+def diff_hardware(before, after, out):
+    lines = []
+    for key in ("cpu_model", "cpu_count", "physmem_bytes", "vendor", "product",
+                "board", "bios_version", "bios_date"):
+        if before.get(key) != after.get(key):
+            lines.append("  ~ %s: %s -> %s" % (key, before.get(key), after.get(key)))
+    old_disks = {d["name"]: d for d in before.get("disks", [])}
+    new_disks = {d["name"]: d for d in after.get("disks", [])}
+    for name in sorted(set(new_disks) - set(old_disks)):
+        lines.append("  + disk %s (%s)" % (name, new_disks[name].get("model", "?")))
+    for name in sorted(set(old_disks) - set(new_disks)):
+        lines.append("  - disk %s (%s)" % (name, old_disks[name].get("model", "?")))
+    if lines:
+        out.append("hardware")
+        out.extend(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Compare two system reports.")
+    parser.add_argument("before")
+    parser.add_argument("after")
+    args = parser.parse_args()
+
+    before, after = load(args.before), load(args.after)
+    if before.get("schema") != after.get("schema"):
+        print("note: reports use different schema versions (%s and %s)"
+              % (before.get("schema"), after.get("schema")), file=sys.stderr)
+    if before.get("hostname_hash") != after.get("hostname_hash"):
+        print("note: the two reports come from different machines", file=sys.stderr)
+
+    out = ["%s  ->  %s" % (before.get("taken_at"), after.get("taken_at")), ""]
+    mark = len(out)
+
+    diff_versions(before.get("versions", {}), after.get("versions", {}), out)
+    diff_hardware(before.get("hardware", {}), after.get("hardware", {}), out)
+    diff_storage(before.get("storage", {}), after.get("storage", {}), out)
+    diff_packages(before.get("packages", {}), after.get("packages", {}), out)
+    diff_services(before.get("services", {}), after.get("services", {}), out)
+    diff_settings(before.get("settings", {}), after.get("settings", {}), out)
+    diff_configs(before.get("config_checksums"), after.get("config_checksums"), out)
+
+    if len(out) == mark:
+        out.append("nothing changed")
+    print("\n".join(out))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
