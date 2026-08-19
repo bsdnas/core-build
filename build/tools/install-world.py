@@ -72,31 +72,36 @@ def register_base_packages(destdir):
         return
     latest = candidates[0]
 
-    conf_dir = os.path.join(destdir, 'usr/local/etc/pkg/repos')
-    sh('mkdir -p {0}'.format(conf_dir))
-    with open(os.path.join(conf_dir, 'bsdnas-base.conf'), 'w') as fh:
+    # Описание репозитория держим ВНЕ образа: это принадлежность сборки, в
+    # установленной системе ему делать нечего. Плюс install-ports всё равно
+    # раскладывает свой набор репозиториев поверх.
+    repos_dir = objdir('pkgbase-repos.conf.d')
+    sh('mkdir -p {0}'.format(repos_dir))
+    with open(os.path.join(repos_dir, 'bsdnas-base.conf'), 'w') as fh:
         fh.write(
             'bsdnas-base: {\n'
             '  url: "file://%s",\n'
             '  enabled: yes,\n'
-            '  signature_type: none,\n'
-            '  priority: 10\n'
+            '  signature_type: none\n'
             '}\n' % latest
         )
 
+    pkg_env = 'env ASSUME_ALWAYS_YES=yes REPOS_DIR={0}'.format(repos_dir)
+    sh('{0} pkg -r {1} update -f'.format(pkg_env, destdir),
+       log=objdir('logs/dest-pkgbase-install'))
+
     info('Registering base packages from {0}', latest)
-    packages = sh_str(
-        'pkg -r {0} rquery -r bsdnas-base %n'.format(destdir)
-    ).split()
+    packages = sh_str('{0} pkg -r {1} rquery %n'.format(pkg_env, destdir)).split()
     wanted = [p for p in packages
               if p not in PKGBASE_EXCLUDE
               and not p.endswith('-dbg')
               and not p.startswith('FreeBSD-set-')]
     if not wanted:
-        info('Base package repository is empty, skipping registration')
-        return
-    sh('env ASSUME_ALWAYS_YES=yes pkg -r {0} install -y -r bsdnas-base {1}'.format(
-        destdir, ' '.join(wanted)), log=objdir('logs/dest-pkgbase-install'))
+        raise RuntimeError(
+            'Репозиторий базы {0} пуст или недоступен — образ остался бы без '
+            'учёта базы в pkg, а это молча ломает обновления'.format(latest))
+    sh('{0} pkg -r {1} install -y {2}'.format(pkg_env, destdir, ' '.join(wanted)),
+       log=objdir('logs/dest-pkgbase-install'), mode='a')
     info('Base registered: {0} packages', len(wanted))
 
 
