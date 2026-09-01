@@ -53,3 +53,7 @@ _BE/
 # site build
 site/.build/
 site/.venv/
+
+### Built sites (build artefacts)
+site/.build/
+site-ru/.build/
