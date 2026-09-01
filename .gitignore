@@ -53,3 +53,7 @@ _BE/
 # сборка сайта
 site/.build/
 site/.venv/
+
+### Собранные сайты (артефакты сборки)
+site/.build/
+site-ru/.build/
