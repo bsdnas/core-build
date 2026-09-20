@@ -152,7 +152,7 @@ def build_pkgbase():
     list, and without it packages tries to install every module in the tree and
     fails on the first one that was not built.
     """
-    info('Building base packages from ${OS_ROOT}')
+    info('Building base packages from {0}', e('${OS_ROOT}'))
     info('Log file: {0}', pkgbaselog)
     modules = ' '.join(config['kernel_modules'])
     sh(
