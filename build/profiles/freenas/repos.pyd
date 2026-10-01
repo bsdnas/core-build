@@ -60,7 +60,7 @@ repos += {
     "name": "freenas-pkgtools",
     "path": "freenas-pkgtools",
     "url": "https://github.com/bsdnas/pkgtools.git",
-    "branch": "master"
+    "branch": "bsdnas"
 }
 
 repos += {
