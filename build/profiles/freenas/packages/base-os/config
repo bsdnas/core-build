@@ -1,11 +1,11 @@
 [Package]
 
 name = base-os
-comment = "FreeNAS OS"
-desc = "FreeNAS OS (derived from FreeBSD)"
-www = http://www.freenas.org/
-origin = freenas/os
-maintainer = dev@ixsystems.com
+comment = BSDnas OS
+desc = BSDnas OS (derived from FreeBSD)
+www = https://bsdnas.com/
+origin = bsdnas/os
+maintainer = bsd@22r.tech
 prefix = /
 arch = freebsd:10:x86:64
 licenselogic = or

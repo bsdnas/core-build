@@ -1,11 +1,11 @@
 [Package]
 
 name = freenas-pkg-tools
-comment = "FreeNAS Package Tools"
-desc = "FreeNAS Package tools"
-www = http://www.freenas.org/
-origin = freenas/pkg-tools
-maintainer = dev@ixsystems.com
+comment = BSDnas Package Tools
+desc = BSDnas package tools
+www = https://bsdnas.com/
+origin = bsdnas/pkg-tools
+maintainer = bsd@22r.tech
 prefix = /
 arch = freebsd:10:x86:64
 licenselogic = or

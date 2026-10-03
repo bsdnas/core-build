@@ -1,11 +1,11 @@
 [Package]
 
 name = freebsd-pkgdb
-comment = "FreeBSD pkg db files"
-desc = "FreeNAS OS (derived from FreeBSD)"
-www = http://www.freenas.org/
-origin = freenas/os
-maintainer = dev@ixsystems.com
+comment = FreeBSD pkg db files
+desc = FreeBSD package database files
+www = https://bsdnas.com/
+origin = bsdnas/pkgdb
+maintainer = bsd@22r.tech
 prefix = /
 arch = freebsd:10:x86:64
 licenselogic = or
