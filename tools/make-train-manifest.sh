@@ -17,6 +17,12 @@
 #
 # The passphrase is passed by environment only: BSDNAS_PASSFILE points at a
 # file holding it. Where the key and that file live is not documented here.
+#
+# The addresses of the package repositories come from the environment too:
+#   BSDNAS_PKGBASE_URL   base as pkg packages
+#   BSDNAS_PORTS_URL     our own software
+# Both are optional; whichever is given goes into the signed manifest, which
+# is how a client learns where to fetch an update from.
 
 set -eu
 
@@ -34,6 +40,14 @@ mkdir -p "$OUT"
 VERSION="${BSDNAS_VERSION:-$(basename "$DIR")}"
 RELEASED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+# Package repositories belonging to this train. The updater takes base from
+# the first and our own software from the second, so the addresses have to
+# arrive the same way the checksums do: inside the signed manifest. Nothing
+# here is a default — an address is part of an installation, not of the
+# source tree, and a manifest without them simply carries none.
+PKGBASE_URL="${BSDNAS_PKGBASE_URL:-}"
+PORTS_URL="${BSDNAS_PORTS_URL:-}"
+
 echo "==> collecting artifacts from $DIR"
 artifacts=""
 for f in "$DIR"/*.iso "$DIR"/*.txz "$DIR"/*.img; do
@@ -47,6 +61,19 @@ for f in "$DIR"/*.iso "$DIR"/*.txz "$DIR"/*.img; do
 done
 [ -n "$artifacts" ] || { echo "no artifacts found in $DIR" >&2; exit 1; }
 
+repos=""
+add_repo() {
+    # $1 name, $2 url
+    [ -n "$2" ] || return 0
+    echo "    repo $1: $2"
+    repos="${repos}${repos:+,}
+    \"$1\": {\"url\": \"$2\"}"
+}
+echo "==> repositories"
+add_repo base "$PKGBASE_URL"
+add_repo ports "$PORTS_URL"
+[ -n "$repos" ] || echo "    none given (BSDNAS_PKGBASE_URL, BSDNAS_PORTS_URL)"
+
 cat > "$OUT/manifest.json" <<JSON
 {
   "format": 1,
@@ -55,7 +82,8 @@ cat > "$OUT/manifest.json" <<JSON
   "released": "$RELEASED",
   "artifacts": [$artifacts
   ],
-  "repos": {}
+  "repos": {$repos
+  }
 }
 JSON
 

@@ -76,12 +76,12 @@ ssh "${TARGET}" "mkdir -p '${REMOTE}/${ABI}'"
 # Packages first, catalogue second: a client arriving mid-copy sees the old
 # catalogue and the old packages, that is, a consistent picture.
 rsync -a --info=progress2 \
-    --exclude 'meta.conf' --exclude 'meta.txz' \
+    --exclude 'meta' --exclude 'meta.conf' --exclude 'meta.txz' \
     --exclude 'packagesite.*' --exclude 'data.*' \
     "${SRC}/" "${TARGET}:${REMOTE}/${ABI}/${BUILD}/"
 
 rsync -a \
-    --include 'meta.*' --include 'packagesite.*' --include 'data.*' \
+    --include 'meta' --include 'meta.*' --include 'packagesite.*' --include 'data.*' \
     --exclude '*' \
     "${SRC}/" "${TARGET}:${REMOTE}/${ABI}/${BUILD}/"
 
