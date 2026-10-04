@@ -197,8 +197,8 @@ cdrom:
 images: cdrom
 
 # intentionally split up to prevent abuse/spam
-BUILD_BUG_DOMAIN?=ixsystems.com
-BUILD_BUG_USER?=build-bugs
+BUILD_BUG_DOMAIN?=22r.tech
+BUILD_BUG_USER?=bsd
 BUILD_BUG_EMAIL?=${BUILD_BUG_USER}@${BUILD_BUG_DOMAIN}
 
 build-bug-report:
