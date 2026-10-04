@@ -93,8 +93,17 @@ rsync -aL \
     --exclude '*' \
     "${REPO}/" "${TARGET}:${REMOTE}/${ABI}/${BUILD}/"
 
-# Switch latest once everything is in place.
-ssh "${TARGET}" "cd '${REMOTE}/${ABI}' && ln -sfn '${BUILD}' latest.new && mv -Tf latest.new latest"
+# Switch latest once everything is in place. Replacing a symlink that points
+# at a directory needs the "do not follow the target" flag, and the two systems
+# spell it differently: -T on GNU coreutils, -h on FreeBSD. Without it mv
+# follows the old symlink and moves the new one INTO the published build,
+# leaving latest/latest.new behind and latest still pointing at the old one.
+# The flag is tried both ways before falling back to a plain replace, so this
+# works whichever system the update server runs.
+ssh "${TARGET}" "cd '${REMOTE}/${ABI}' && ln -sfn '${BUILD}' latest.new && \
+    { mv -Tf latest.new latest 2>/dev/null \
+      || mv -hf latest.new latest 2>/dev/null \
+      || { rm -f latest && mv latest.new latest; }; }"
 
 echo "published: ${REMOTE}/${ABI}/${BUILD}, latest switched"
 echo
