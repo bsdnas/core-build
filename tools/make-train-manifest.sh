@@ -59,7 +59,6 @@ for f in "$DIR"/*.iso "$DIR"/*.txz "$DIR"/*.img; do
     artifacts="${artifacts}${artifacts:+,}
     {\"name\": \"$name\", \"size\": $size, \"sha256\": \"$sum\"}"
 done
-[ -n "$artifacts" ] || { echo "no artifacts found in $DIR" >&2; exit 1; }
 
 repos=""
 add_repo() {
@@ -73,6 +72,16 @@ echo "==> repositories"
 add_repo base "$PKGBASE_URL"
 add_repo ports "$PORTS_URL"
 [ -n "$repos" ] || echo "    none given (BSDNAS_PKGBASE_URL, BSDNAS_PORTS_URL)"
+
+# A manifest has to say where an update comes from, and there are two kinds of
+# answer: images to download, or repositories to update packages from. Which
+# one is missing is a matter of what this train offers; having neither means
+# the manifest describes nothing at all.
+if [ -z "$artifacts" ] && [ -z "$repos" ]; then
+    echo "neither artifacts in $DIR nor repositories given: nothing to describe" >&2
+    exit 1
+fi
+[ -n "$artifacts" ] || echo "    no images in $DIR: this manifest describes a package update"
 
 cat > "$OUT/manifest.json" <<JSON
 {
