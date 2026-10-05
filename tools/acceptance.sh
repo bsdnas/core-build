@@ -289,6 +289,10 @@ install)
     # in which the installer did nothing passed: the machine booted whatever
     # was on its disk before, that system answered, and verify() saw no
     # difference.
+    # Only once the system is up: asked straight after boot it answers
+    # nothing, and an empty answer is not zero. The first boot of a fresh
+    # system is also the slow one -- it generates its keys -- hence 900 s.
+    wait_ready 900 || fail "the system did not reach READY after a clean install"
     _pools=$(api pool | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)
     [ "${_pools:-x}" = 0 ] || fail "after a clean install the system has ${_pools:-?} pool(s): the install did not happen"
     verify && log "ACCEPTANCE PASSED" || fail "the checks did not pass"
