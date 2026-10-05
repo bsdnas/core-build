@@ -41,7 +41,25 @@ fail() { printf '%s  FAILED: %s\n' "$(date +%H:%M:%S)" "$*" >&2; exit 1; }
 pve()      { timeout 120 $SSH "$PVE" "$@"; }
 key()      { pve "printf 'sendkey $1\n' | qm monitor $VMID >/dev/null 2>&1"; }
 # Type a string without Enter: passwords and input fields
-text()     { pve "bash /tmp/sendtext.sh $VMID '$1'"; }
+# Type a string without Enter, one key at a time. This used to call
+# /tmp/sendtext.sh on the hypervisor, which the script never put there: it had
+# been placed by hand once, /tmp was cleaned since, and typing silently stopped
+# working -- on 2026-10-05 a "clean install" passed acceptance without
+# installing anything. Characters the mapping does not know are a refusal,
+# not a skip: a password typed with a letter missing is worse than none.
+text() {
+    local _s="$1" _i _c _k
+    for ((_i = 0; _i < ${#_s}; _i++)); do
+        _c="${_s:_i:1}"
+        case "$_c" in
+            [a-z0-9]) _k="$_c" ;;
+            [A-Z])    _k="shift-${_c,,}" ;;
+            -) _k=minus ;;  .) _k=dot ;;  _) _k=shift-minus ;;  @) _k=shift-2 ;;
+            *) fail "cannot type the character '$_c'" ;;
+        esac
+        key "$_k" || fail "sendkey $_k failed"
+    done
+}
 api()      { pve "timeout 30 curl -sk -u root:$NASPW https://$NASIP/api/v2.0/$1" 2>/dev/null; }
 
 # Wait until middleware answers READY. Longer than it seems to be needed:
@@ -267,6 +285,12 @@ install)
     [ $# -ge 2 ] || fail "an ISO name is required"
     wipe_boot_disk
     boot_iso "$2"; run_installer fresh; boot_disk
+    # A clean install has to leave a clean system. Without this check a run
+    # in which the installer did nothing passed: the machine booted whatever
+    # was on its disk before, that system answered, and verify() saw no
+    # difference.
+    _pools=$(api pool | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null)
+    [ "${_pools:-x}" = 0 ] || fail "after a clean install the system has ${_pools:-?} pool(s): the install did not happen"
     verify && log "ACCEPTANCE PASSED" || fail "the checks did not pass"
     ;;
 upgrade)
