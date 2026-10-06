@@ -85,8 +85,13 @@ post-upgrade =
 	/usr/bin/touch /data/.ses_firmware_update
 	if [ -c /dev/null ]; then
 	   for disk in $(sysctl -n kern.disks); do
-	       if gpart show ${disk} | grep -q freebsd-boot; then
-		   gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 /dev/${disk}
+	       # The freebsd-boot partition is looked up, never assumed to be
+	       # number one. gpart writes partcode into whatever partition has
+	       # that index, without checking its type, and on a disk the system
+	       # was installed beside, partition one is somebody else's data.
+	       bootidx=$(gpart show ${disk} | awk '$4 == "freebsd-boot" {print $3; exit}')
+	       if [ -n "${bootidx}" ]; then
+		   gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i ${bootidx} /dev/${disk}
 	       elif sysctl -n machdep.bootmethod | fgrep -q "EFI" && gpart show ${disk} | grep -q efi; then
 		   if mount -t msdosfs /dev/${disk}p1 /boot/efi; then
 		       cp /boot/boot1.efi /boot/efi/efi/boot/BOOTx64.efi
