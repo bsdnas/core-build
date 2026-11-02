@@ -121,6 +121,50 @@ def env(name, default=None):
     return os.getenv(name, default)
 
 
+def pkg_signing_command():
+    """The command that signs a package catalogue, or None to leave it unsigned.
+
+    Both package repositories of a build -- the base packages and what
+    poudriere builds -- are signed the same way: pkg-repo(8) is given
+    `signing_command: <this>`, and tools/pkg-repo-sign.sh signs with the key
+    the operator names in BSDNAS_PKG_SIGNING_KEY. The key itself is not in this
+    repository and its location is not either; whoever builds a release says
+    where it is.
+
+    Unset means an unsigned build. That is fine for a developer without the
+    key, and harmless: tools/publish-pkgbase.sh and tools/publish-ports.sh
+    refuse to publish a catalogue that is not signed, and installed systems
+    refuse to read one.
+
+    Set but unusable is an error, now rather than hours into the build: a
+    signing step that fails at the very end loses the whole run.
+
+    The path ends up on a shell command line twice over -- once in make, once
+    in pkg running the command -- so characters that either would interpret
+    are refused instead of quoted.
+    """
+    key = env('BSDNAS_PKG_SIGNING_KEY')
+    if not key:
+        return None
+
+    def plain(path):
+        return os.path.isabs(path) and not any(
+            c.isspace() or c in '\'"$`\\;&|<>()*?[]{}#~' for c in path)
+
+    if not plain(key):
+        error('BSDNAS_PKG_SIGNING_KEY has to be an absolute path of plain characters, got {0!r}', key)
+    if not os.path.isfile(key) or not os.access(key, os.R_OK):
+        error('BSDNAS_PKG_SIGNING_KEY: cannot read the key {0}', key)
+
+    helper = os.path.join(env('BUILD_ROOT', ''), 'tools', 'pkg-repo-sign.sh')
+    if not plain(helper):
+        error('the build tree has to be at a path of plain characters to sign packages, got {0!r}', helper)
+    if not os.access(helper, os.X_OK):
+        error('no signing helper at {0}', helper)
+
+    return '{0} {1}'.format(helper, key)
+
+
 def readfile(filename):
     filename = e(filename, **get_caller_vars())
     with open(filename, 'r', encoding='utf8', errors='ignore') as f:

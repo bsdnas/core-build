@@ -33,7 +33,7 @@ import string
 from dsl import load_file, load_profile_config
 from utils import (
     sh, sh_str, sh_spawn, env, e, glob, pathjoin, objdir,
-    setfile, template, debug, error, on_abort, info
+    setfile, template, debug, error, on_abort, info, pkg_signing_command
 )
 
 
@@ -91,6 +91,19 @@ def create_poudriere_config():
 
     if e('${USE_ZFS}'):
         opts['no_zfs'] = ''
+
+    # Signing the catalogue: see pkg_signing_command(). PKG_REPO_FROM_HOST is
+    # not optional with it: by default poudriere runs `pkg repo` inside the
+    # build jail, where neither the key nor the helper exist, and the signing
+    # command runs wherever pkg repo does.
+    signing = pkg_signing_command()
+    if signing:
+        info('Signing the ports catalogue (BSDNAS_PKG_SIGNING_KEY)')
+        opts['pkg_signing'] = 'SIGNING_COMMAND="{0}"\nPKG_REPO_FROM_HOST=yes'.format(signing)
+    else:
+        info('BSDNAS_PKG_SIGNING_KEY is not set: the ports catalogue stays unsigned '
+             'and tools/publish-ports.sh will refuse to publish it')
+        opts['pkg_signing'] = '# unsigned: BSDNAS_PKG_SIGNING_KEY was not set'
 
     setfile('${POUDRIERE_ROOT}/etc/poudriere.conf', template('${BUILD_CONFIG}/templates/poudriere.conf', opts))
     tree = e('${POUDRIERE_ROOT}/etc/poudriere.d/ports/p')

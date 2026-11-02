@@ -29,7 +29,7 @@
 import os
 import sys
 from dsl import load_profile_config
-from utils import sh, sh_str, env, e, objdir, info, debug, pathjoin
+from utils import sh, sh_str, env, e, objdir, info, debug, pathjoin, pkg_signing_command
 
 
 config = load_profile_config()
@@ -151,10 +151,23 @@ def build_pkgbase():
     MODULES_OVERRIDE is mandatory: the kernel is built with a reduced module
     list, and without it packages tries to install every module in the tree and
     fails on the first one that was not built.
+
+    The catalogue is signed when the operator gives a key; see
+    pkg_signing_command(). FreeBSD's Makefile.inc1 hands PKG_REPO_SIGNING_KEY
+    to `pkg repo` as its last argument, unquoted, so the value
+    "signing_command: <helper> <key>" arrives as pkg-repo(8) expects it.
     """
     info('Building base packages from {0}', e('${OS_ROOT}'))
     info('Log file: {0}', pkgbaselog)
     modules = ' '.join(config['kernel_modules'])
+    signing = pkg_signing_command()
+    if signing:
+        info('Signing the base package catalogue (BSDNAS_PKG_SIGNING_KEY)')
+        signing = "PKG_REPO_SIGNING_KEY='signing_command: {0}'".format(signing)
+    else:
+        info('BSDNAS_PKG_SIGNING_KEY is not set: the base package catalogue stays '
+             'unsigned and tools/publish-pkgbase.sh will refuse to publish it')
+        signing = ''
     sh(
         "env -u DEBUG -u MAKEFLAGS MAKEOBJDIRPREFIX=${OBJDIR}",
         "make",
@@ -166,6 +179,7 @@ def build_pkgbase():
         "MODULES_OVERRIDE='{0}'".format(modules),
         "NO_INSTALLEXTRAKERNELS=yes",
         "REPODIR=${PKGBASE_REPO}",
+        signing,
         "packages",
         log=pkgbaselog
     )
