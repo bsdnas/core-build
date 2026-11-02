@@ -110,11 +110,24 @@ for entry in packagesite.pkg:packagesite.yaml data.pkg:data filesite.pkg:filesit
         fail "${archive} holds more than ${member} and its signature: $(printf '%s' "${_list}" | tr '\n' ' ')"
     fi
 
+    # And all three plain files. A member that is a symlink unpacks as one,
+    # and the checks below would follow it: a link to a correctly signed file
+    # kept somewhere else would verify that file, not what the archive holds.
+    # Hard links are refused too; the listing marks them " link to ".
+    _verbose=$(tar -tvf "${DIR}/${archive}") || fail "cannot read ${archive}"
+    if [ "$(printf '%s\n' "${_verbose}" | cut -c1 | sort -u)" != "-" ] \
+        || printf '%s\n' "${_verbose}" | grep -Fq ' link to '; then
+        fail "${archive} holds members that are not plain files: $(printf '%s' "${_verbose}" | tr '\n' ';')"
+    fi
+
     rm -rf "${WORK:?}/x"
     mkdir "${WORK}/x"
     tar -xf "${DIR}/${archive}" -C "${WORK}/x" || fail "cannot unpack ${archive}"
     f="${WORK}/x/${member}"
     name="${archive}: ${member}"
+    for _m in "${f}" "${f}.sig" "${f}.pub"; do
+        [ ! -L "${_m}" ] || fail "${archive}: $(basename "${_m}") is a symlink"
+    done
     [ -f "${f}" ] && [ -s "${f}.sig" ] && [ -s "${f}.pub" ] || unsigned "${name} is not signed"
     sum=$(openssl dgst -sha256 -r "${f}" | cut -d' ' -f1)
     printf '%s' "${sum}" | openssl dgst -sha256 -verify "${f}.pub" -signature "${f}.sig" \

@@ -67,15 +67,29 @@ LATEST="${ABI_DIR}/latest"
 SRC=$(cd -P "${LATEST}" && pwd -P) || { echo "cannot resolve ${LATEST}" >&2; exit 1; }
 BUILD=$(basename "${SRC}")
 
+# The catalogue that is checked is the catalogue that is sent. It is copied
+# out of the build into a private directory first; that copy is what
+# verify-pkg-repo.sh checks and what goes to the server, so nothing that
+# happens to the build directory meanwhile -- `pkg repo` run there again
+# without a key, say -- changes what is published. The packages are still
+# sent from the build directory: the catalogue pins each of them by its
+# checksum, and a client refuses a package that does not match.
+CAT=$(mktemp -d "${TMPDIR:-/tmp}/publish-catalogue.XXXXXX")
+trap 'rm -rf "${CAT}"' EXIT
+for f in "${SRC}"/meta "${SRC}"/meta.* "${SRC}"/packagesite.* "${SRC}"/data.* "${SRC}"/filesite.*; do
+    [ -f "${f}" ] || continue
+    cp -pL "${f}" "${CAT}/"
+done
+
 # The catalogue is what a client uses to learn what the repository holds.
 # Without it there is nothing to publish.
 for f in meta.conf packagesite.pkg; do
-    [ -f "${SRC}/${f}" ] || { echo "the build has no ${f}: the repository is incomplete" >&2; exit 1; }
+    [ -f "${CAT}/${f}" ] || { echo "the build has no ${f}: the repository is incomplete" >&2; exit 1; }
 done
 
 # The catalogue has to be signed, and the signature has to check out: clients
 # refuse anything else. See tools/verify-pkg-repo.sh.
-"$(dirname "$0")/verify-pkg-repo.sh" "${SRC}"
+"$(dirname "$0")/verify-pkg-repo.sh" "${CAT}"
 
 COUNT=$(find "${SRC}" -name '*.pkg' | wc -l | tr -d ' ')
 SIZE=$(du -sh "${SRC}" | awk '{print $1}')
@@ -86,14 +100,13 @@ ssh "${TARGET}" "mkdir -p '${REMOTE}/${ABI}'"
 # Packages first, catalogue second: a client arriving mid-copy sees the old
 # catalogue and the old packages, that is, a consistent picture.
 rsync -a --info=progress2 \
-    --exclude 'meta' --exclude 'meta.conf' --exclude 'meta.txz' \
-    --exclude 'packagesite.*' --exclude 'data.*' \
+    --exclude 'meta' --exclude 'meta.*' \
+    --exclude 'packagesite.*' --exclude 'data.*' --exclude 'filesite.*' \
     "${SRC}/" "${TARGET}:${REMOTE}/${ABI}/${BUILD}/"
 
-rsync -a \
-    --include 'meta' --include 'meta.*' --include 'packagesite.*' --include 'data.*' \
-    --exclude '*' \
-    "${SRC}/" "${TARGET}:${REMOTE}/${ABI}/${BUILD}/"
+# The files, not the directory: rsync of "${CAT}/" would also give the
+# published build directory the private permissions of the copy.
+rsync -a "${CAT}"/* "${TARGET}:${REMOTE}/${ABI}/${BUILD}/"
 
 # Switch latest once everything is in place. Replacing a symlink that points
 # at a directory needs the "do not follow the target" flag, and the two systems
