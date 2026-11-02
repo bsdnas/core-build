@@ -85,6 +85,37 @@ make release
 A clean build takes a few hours — poudriere has to build every port. Later
 builds are much faster because only what changed is rebuilt.
 
+### Signing the package repositories
+
+An installed system updates from two pkg repositories the build produces: the
+base packages (`freenas/_BE/objs/pkgbase-repo`) and the ports poudriere built.
+It checks their catalogues with `signature_type: fingerprints` against the key
+fingerprints its image carries, and refuses a catalogue that is not signed.
+
+The build signs both when it is given the repository key, an RSA private key
+in PEM:
+
+```
+env BSDNAS_PKG_SIGNING_KEY=/path/to/repo.key make release
+```
+
+The key stays on the build machine and is read only by
+`tools/pkg-repo-sign.sh`, the signing command `pkg repo` calls. Without the
+variable the build still works and the catalogues stay unsigned;
+`tools/publish-pkgbase.sh` and `tools/publish-ports.sh` then refuse to publish
+them: both check the signature with `tools/verify-pkg-repo.sh` before anything
+is copied. An already built repository can be signed in place:
+
+```
+pkg repo <dir> signing_command: tools/pkg-repo-sign.sh /path/to/repo.key
+```
+
+The fingerprint clients trust ships in the image from the middleware
+repository, under `/usr/local/share/keys/bsdnas-pkg/trusted/`. Replacing the
+key goes in that order: the new fingerprint is added to `trusted/` and shipped
+first, the build switches to the new key after that, and the old fingerprint
+moves to `revoked/` last.
+
 ## Tooling
 
 | | |

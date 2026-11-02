@@ -30,6 +30,8 @@
 # What it does, in order:
 #   * refuses to publish a repository without a catalogue — a half-copied
 #     repository is worse than none, because clients see it and fail;
+#   * refuses to publish a catalogue whose signature does not verify (see
+#     tools/verify-pkg-repo.sh): installed systems would refuse it anyway;
 #   * copies packages first and the catalogue last, so a client that fetches
 #     mid-copy never sees a catalogue referring to packages that are not there
 #     yet;
@@ -39,7 +41,7 @@
 set -eu
 
 usage() {
-    sed -n '3,37p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,39p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
 }
 
@@ -69,6 +71,10 @@ BUILD=$(cat "${REPO}/.buildname" 2>/dev/null || true)
 for f in meta.conf packagesite.pkg; do
     [ -f "${REPO}/${f}" ] || { echo "the build has no ${f}: the repository is incomplete" >&2; exit 1; }
 done
+
+# The catalogue has to be signed, and the signature has to check out: clients
+# refuse anything else. See tools/verify-pkg-repo.sh.
+"$(dirname "$0")/verify-pkg-repo.sh" "${REPO}"
 
 COUNT=$(find "${REPO}/All/" -name '*.pkg' | wc -l | tr -d ' ')
 SIZE=$(du -shL "${REPO}/All" | awk '{print $1}')
@@ -109,4 +115,5 @@ echo "published: ${REMOTE}/${ABI}/${BUILD}, latest switched"
 echo
 echo "on the client:"
 echo "  /usr/local/etc/pkg/repos/bsdnas-ports.conf"
-echo "  bsdnas-ports: { url: \"https://<server>/ports/${ABI}/latest\", enabled: yes }"
+echo "  bsdnas-ports: { url: \"https://<server>/ports/${ABI}/latest\", enabled: yes,"
+echo "    signature_type: \"fingerprints\", fingerprints: \"/usr/local/share/keys/bsdnas-pkg\" }"
