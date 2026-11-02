@@ -59,25 +59,39 @@ fi
 
 [ -d "${REPO}" ] || { echo "no repository: ${REPO}" >&2; exit 1; }
 
+# Poudriere switches `.latest` to a new build when one finishes, and `All`
+# and the catalogue in REPO follow it. The build to publish is therefore
+# resolved once, to the physical directory `.latest` points at, and
+# everything below -- the check of the catalogue, its signature, the copy --
+# uses that path. Following the links again at copy time would publish
+# whatever a build that finished in the meantime left there, which nobody
+# verified. A repository without `.latest` (poudriere without atomic
+# repositories) is taken as it is.
+if [ -e "${REPO}/.latest" ]; then
+    SRC=$(cd -P "${REPO}/.latest" && pwd -P) || { echo "cannot resolve ${REPO}/.latest" >&2; exit 1; }
+else
+    SRC=$(cd -P "${REPO}" && pwd -P)
+fi
+
 # The build is named by poudriere and kept in .buildname; it is what the
 # published directory is called, so two publications of the same build land
 # in the same place and a client can tell them apart.
-BUILD=$(cat "${REPO}/.buildname" 2>/dev/null || true)
-[ -n "${BUILD}" ] || { echo "no .buildname in ${REPO}: not a poudriere repository" >&2; exit 1; }
+BUILD=$(cat "${SRC}/.buildname" 2>/dev/null || true)
+[ -n "${BUILD}" ] || { echo "no .buildname in ${SRC}: not a poudriere repository" >&2; exit 1; }
 
 # The catalogue is what a client uses to learn what the repository holds.
 # Without it there is nothing to publish. Poudriere writes it at the end of a
 # successful build, so its absence also means the build did not finish.
 for f in meta.conf packagesite.pkg; do
-    [ -f "${REPO}/${f}" ] || { echo "the build has no ${f}: the repository is incomplete" >&2; exit 1; }
+    [ -f "${SRC}/${f}" ] || { echo "the build has no ${f}: the repository is incomplete" >&2; exit 1; }
 done
 
 # The catalogue has to be signed, and the signature has to check out: clients
 # refuse anything else. See tools/verify-pkg-repo.sh.
-"$(dirname "$0")/verify-pkg-repo.sh" "${REPO}"
+"$(dirname "$0")/verify-pkg-repo.sh" "${SRC}"
 
-COUNT=$(find "${REPO}/All/" -name '*.pkg' | wc -l | tr -d ' ')
-SIZE=$(du -shL "${REPO}/All" | awk '{print $1}')
+COUNT=$(find "${SRC}/All/" -name '*.pkg' | wc -l | tr -d ' ')
+SIZE=$(du -shL "${SRC}/All" | awk '{print $1}')
 echo "publishing ${ABI}/${BUILD}: ${COUNT} packages, ${SIZE} -> ${TARGET}:${REMOTE}"
 
 ssh "${TARGET}" "mkdir -p '${REMOTE}/${ABI}/${BUILD}'"
@@ -92,12 +106,12 @@ rsync -aL --info=progress2 \
     --exclude 'logs' --exclude '.real_*' --exclude '.latest' \
     --exclude 'meta' --exclude 'meta.conf' \
     --exclude 'packagesite.*' --exclude 'data.*' \
-    "${REPO}/" "${TARGET}:${REMOTE}/${ABI}/${BUILD}/"
+    "${SRC}/" "${TARGET}:${REMOTE}/${ABI}/${BUILD}/"
 
 rsync -aL \
     --include 'meta' --include 'meta.*' --include 'packagesite.*' --include 'data.*' \
     --exclude '*' \
-    "${REPO}/" "${TARGET}:${REMOTE}/${ABI}/${BUILD}/"
+    "${SRC}/" "${TARGET}:${REMOTE}/${ABI}/${BUILD}/"
 
 # Switch latest once everything is in place. Replacing a symlink that points
 # at a directory needs the "do not follow the target" flag, and the two systems

@@ -103,8 +103,7 @@ The key stays on the build machine and is read only by
 `tools/pkg-repo-sign.sh`, the signing command `pkg repo` calls. Without the
 variable the build still works and the catalogues stay unsigned;
 `tools/publish-pkgbase.sh` and `tools/publish-ports.sh` then refuse to publish
-them: both check the signature with `tools/verify-pkg-repo.sh` before anything
-is copied. An already built repository can be signed in place:
+them. An already built repository can be signed in place:
 
 ```
 pkg repo <dir> signing_command: tools/pkg-repo-sign.sh /path/to/repo.key
@@ -115,6 +114,30 @@ repository, under `/usr/local/share/keys/bsdnas-pkg/trusted/`. Replacing the
 key goes in that order: the new fingerprint is added to `trusted/` and shipped
 first, the build switches to the new key after that, and the old fingerprint
 moves to `revoked/` last.
+
+Before anything is copied, both publish scripts check the catalogue the way a
+client will, with `tools/verify-pkg-repo.sh`: every archive holds just its
+catalogue file with a signature that verifies, all of them are signed by one
+key, and that key's fingerprint is in `trusted/` and not in `revoked/`. The
+fingerprints are the ones the clients ship, taken from
+
+* `BSDNAS_PKG_FINGERPRINTS`, the path of a `bsdnas-pkg` directory holding
+  `trusted/` (and `revoked/`), when it is set;
+* otherwise the middleware checkout of the build tree,
+  `freenas/_BE/freenas/src/freenas/usr/local/share/keys/bsdnas-pkg` -- what
+  the image being published was built with.
+
+With neither there, publishing stops; the check is never skipped. On a host
+that is not the build machine, point the variable at a middleware checkout:
+
+```
+env BSDNAS_PKG_FINGERPRINTS=/path/to/middleware/src/freenas/usr/local/share/keys/bsdnas-pkg \
+    tools/publish-ports.sh <user@host> <remote-path> <repo-dir>
+```
+
+The check unpacks the catalogue with `tar`. On FreeBSD that is bsdtar and
+handles the zstd catalogues pkg writes; on Linux GNU tar needs the `zstd`
+program for that, and without it the check fails -- and publishing with it.
 
 ## Tooling
 

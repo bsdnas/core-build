@@ -60,8 +60,12 @@ ABI=$(basename "${ABI_DIR}")
 LATEST="${ABI_DIR}/latest"
 [ -e "${LATEST}" ] || { echo "no ${LATEST}: the pkgbase build did not finish" >&2; exit 1; }
 
-BUILD=$(readlink "${LATEST}" || basename "${LATEST}")
-SRC="${ABI_DIR}/${BUILD}"
+# Resolved once, to the physical directory, and everything below -- the check
+# of the catalogue, its signature, the copy -- uses that path. Following
+# `latest` again later would publish whatever a build that finished in the
+# meantime pointed it at, which nobody verified.
+SRC=$(cd -P "${LATEST}" && pwd -P) || { echo "cannot resolve ${LATEST}" >&2; exit 1; }
+BUILD=$(basename "${SRC}")
 
 # The catalogue is what a client uses to learn what the repository holds.
 # Without it there is nothing to publish.
