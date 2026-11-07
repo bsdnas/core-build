@@ -15,11 +15,12 @@
 #   tools/prune-builds.sh            show what would be removed
 #   tools/prune-builds.sh --apply    remove
 #   KEEP=5 tools/prune-builds.sh     how many recent builds to keep (default 3)
+#   PROFILE=releng-15.1 tools/prune-builds.sh   the build tree of another profile
 
 set -u
 
 KEEP="${KEEP:-3}"
-BE="${BE:-/usr/build/freenas/_BE}"
+BE="${BE:-/usr/build/${PROFILE:-freenas}/_BE}"
 APPLY=0
 [ "${1:-}" = "--apply" ] && APPLY=1
 

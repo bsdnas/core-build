@@ -29,7 +29,7 @@ include("packages.pyd")
 
 profile = {
     "name": "bsdnas",
-    "description": "BSDnas on FreeBSD stable/15",
+    "description": "${PROFILE_DESCRIPTION}",
     "owner": "bsd@22r.tech",
     "status": "active"
 }

@@ -27,7 +27,7 @@ repos += {
     "name": "os",
     "path": "os",
     "url": "https://github.com/bsdnas/os.git",
-    "branch": "base/stable-15"
+    "branch": "${OS_BRANCH}"
 }
 
 repos += {

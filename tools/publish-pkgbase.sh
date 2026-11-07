@@ -14,8 +14,14 @@
 #   publish-pkgbase.sh <user@host> [remote-path] [repo-dir]
 #
 #   user@host     where to publish, over ssh
-#   remote-path   directory served as /pkgbase/  (default /var/www/updates/pkgbase)
-#   repo-dir      local repository              (default from the build tree)
+#   remote-path   directory served as /pkgbase/  (default /var/www/updates/pkgbase,
+#                 for the freenas profile only)
+#   repo-dir      local repository              (default from the build tree of
+#                 $PROFILE, freenas when unset)
+#
+# Each line (profile) has a repository of its own. A build of another profile
+# must name its remote path: published to the default, it would replace the
+# packages the systems of the stable line update from.
 #
 # Example:
 #   tools/publish-pkgbase.sh deploy@updates.example.com
@@ -40,13 +46,18 @@ usage() {
 [ $# -ge 1 ] || usage
 
 TARGET="$1"
+PROFILE="${PROFILE:-freenas}"
+if [ -z "${2:-}" ] && [ "${PROFILE}" != freenas ]; then
+    echo "profile ${PROFILE}: give the remote path explicitly, the default belongs to the freenas profile" >&2
+    exit 1
+fi
 REMOTE="${2:-/var/www/updates/pkgbase}"
 REPO="${3:-}"
 
 if [ -z "${REPO}" ]; then
-    # Look for the repository in the build tree: build/... -> freenas/_BE/objs
+    # Look for the repository in the build tree: build/... -> <profile>/_BE/objs
     _root=$(cd "$(dirname "$0")/.." && pwd)
-    REPO="${_root}/freenas/_BE/objs/pkgbase-repo"
+    REPO="${_root}/${PROFILE}/_BE/objs/pkgbase-repo"
 fi
 
 [ -d "${REPO}" ] || { echo "no repository: ${REPO}" >&2; exit 1; }

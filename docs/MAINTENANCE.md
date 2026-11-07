@@ -48,6 +48,24 @@ different place.
 After the rebase — a full build and `tools/acceptance.sh install`, otherwise
 the rebase is pointless.
 
+The releng line has a base of its own: branch `base/releng-15.1`, the same
+patch set on top of `releng/15.1`. It follows its release branch the same way
+(`git rebase --onto up/releng/15.1 <previous-base> base/releng-15.1`) — that is
+how errata and security fixes reach it — and it is built with
+`make PROFILE=releng-15.1`.
+
+The two bases do not carry identical commits. When `base/releng-15.1` was cut
+(2026-11-07):
+
+* `ctld: change configuration live` was taken in the variant written for
+  `releng/15.0`, because the ctld of `stable/15` has moved on; the lines it
+  adds are the same;
+* `pkgbase: make the ppp package conditional on MK_PPP` was left out: it fixes
+  the `packages/` layout of `stable/15`, and `releng/15.1` still builds base
+  packages from `release/packages`.
+
+A change to the patch set goes to both bases.
+
 ### A security advisory has been published
 
 FreeBSD advisories (`SA` — security, `EN` — errata) are applied to `stable/15`

@@ -17,7 +17,8 @@
 #   fingerprints  the directory with trusted/ and revoked/ that the clients
 #                 ship, default $BSDNAS_PKG_FINGERPRINTS, and failing that the
 #                 copy in the middleware checkout of this build tree
-#                 (freenas/_BE/freenas/src/freenas/usr/local/share/keys/bsdnas-pkg).
+#                 (<profile>/_BE/freenas/src/freenas/usr/local/share/keys/bsdnas-pkg,
+#                 profile from $PROFILE, freenas when unset).
 #                 None of them there is an error, not a reason to skip.
 #
 # What a signed catalogue looks like, as pkg 2.7.5 writes it with a signing
@@ -58,7 +59,7 @@ unsigned() {
 FP="${2:-${BSDNAS_PKG_FINGERPRINTS:-}}"
 if [ -z "${FP}" ]; then
     _root=$(cd "$(dirname "$0")/.." && pwd)
-    FP="${_root}/freenas/_BE/freenas/src/freenas/usr/local/share/keys/bsdnas-pkg"
+    FP="${_root}/${PROFILE:-freenas}/_BE/freenas/src/freenas/usr/local/share/keys/bsdnas-pkg"
 fi
 [ -d "${FP}/trusted" ] || fail "no trusted/ in ${FP}: give the fingerprints the clients ship, as the second argument or in BSDNAS_PKG_FINGERPRINTS"
 

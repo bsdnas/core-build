@@ -20,7 +20,10 @@
 #   publish-ports.sh <user@host> [remote-path] [repo-dir] [abi]
 #
 #   user@host     where to publish, over ssh
-#   remote-path   directory served as /ports/   (default /var/www/updates/ports)
+#   remote-path   directory served as /ports/   (default /var/www/updates/ports,
+#                 for the freenas profile only: a build of another $PROFILE
+#                 must name its own, or it would replace the packages of the
+#                 stable line)
 #   repo-dir      local repository              (poudriere's <jail>-p directory)
 #   abi           name of the directory inside  (default FreeBSD:15:amd64)
 #
@@ -41,13 +44,17 @@
 set -eu
 
 usage() {
-    sed -n '3,39p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,42p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
 }
 
 [ $# -ge 1 ] || usage
 
 TARGET="$1"
+if [ -z "${2:-}" ] && [ "${PROFILE:-freenas}" != freenas ]; then
+    echo "profile ${PROFILE}: give the remote path explicitly, the default belongs to the freenas profile" >&2
+    exit 1
+fi
 REMOTE="${2:-/var/www/updates/ports}"
 REPO="${3:-}"
 ABI="${4:-FreeBSD:15:amd64}"

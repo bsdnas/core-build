@@ -54,7 +54,7 @@ TrueNAS and does not describe what the system needs. Full detail:
 ## Make targets
 
 * `checkout` — clone the source repositories listed in
-  `build/profiles/freenas/repos.pyd`
+  `build/profiles/<profile>/repos.pyd` (`freenas` unless `PROFILE` is given)
 * `update` — `git pull` those repositories
 * `release` — build the release: world, kernel, ports, packages, ISO and
   update files
@@ -84,6 +84,36 @@ make release
 
 A clean build takes a few hours — poudriere has to build every port. Later
 builds are much faster because only what changed is rebuilt.
+
+### Two lines: stable and releng
+
+The tree builds two lines of BSDnas, each from its own profile:
+
+| Profile | FreeBSD base (`bsdnas/os`) | Build name | Update train |
+|---|---|---|---|
+| `freenas` (default) | `base/stable-15`, follows `stable/15` | `BSDnas-15-...` | `BSDnas-15-Nightlies` |
+| `releng-15.1` | `base/releng-15.1`, on `releng/15.1` | `BSDnas-15.1-...` | `BSDnas-15.1-Nightlies` |
+
+The stable line keeps its name while its base moves on to the next FreeBSD
+version. A releng build is named after the FreeBSD release it is built on.
+The trains are separate, so a system is only ever offered builds of its own
+line. Moving from stable to releng of the same version would be a step back
+(15.1-STABLE is newer than 15.1-RELEASE), so a stable system can move to
+releng only at the next version.
+
+`releng-15.1` shares every file with `freenas` except `env.pyd`: the other
+entries of its directory are links. To build it:
+
+```
+make PROFILE=releng-15.1 checkout
+make PROFILE=releng-15.1 release
+```
+
+Each profile has its own tree, `<profile>/_BE`, so the two lines build side by
+side without switching each other's branches. The publishing tools take the
+profile from `PROFILE` as well, and for any profile but `freenas` they require
+the remote path to be given: the default paths hold the packages of the stable
+line.
 
 ### Signing the package repositories
 
