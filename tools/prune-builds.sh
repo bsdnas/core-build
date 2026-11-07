@@ -28,16 +28,17 @@ APPLY=0
 cd "$BE/release" || exit 1
 
 # Sorted by the actual time rather than by the stamp in the directory name.
-# ONLY the BSDnas-15-MASTER-* build directories are counted: on 2026-08-19 the
-# script took the auxiliary directories (Nightlies-Update) for the "most recent"
-# ones and removed the directory of the fresh build together with its ISO.
-total=$(ls -1dt BSDnas-15-MASTER-*/ 2>/dev/null | wc -l | tr -d ' ')
+# ONLY the BSDnas-<version>-MASTER-* build directories are counted (15 for
+# the stable line, 15.1 for releng): on 2026-08-19 the script took the
+# auxiliary directories (Nightlies-Update) for the "most recent" ones and
+# removed the directory of the fresh build together with its ISO.
+total=$(ls -1dt BSDnas-*-MASTER-*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$total" -le "$KEEP" ]; then
     echo "builds: ${total}, keeping ${KEEP}, nothing to remove"
     exit 0
 fi
 
-doomed=$(ls -1dt BSDnas-15-MASTER-*/ 2>/dev/null | sed 's,/$,,' | tail -n +$((KEEP + 1)))
+doomed=$(ls -1dt BSDnas-*-MASTER-*/ 2>/dev/null | sed 's,/$,,' | tail -n +$((KEEP + 1)))
 freed=$(echo "$doomed" | while read -r d; do
     [ -n "$d" ] && du -sk "$d" 2>/dev/null | cut -f1
 done | awk '{s += $1} END {printf "%d", s / 1048576}')

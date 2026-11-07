@@ -62,6 +62,16 @@ fi
 
 [ -d "${REPO}" ] || { echo "no repository: ${REPO}" >&2; exit 1; }
 
+# The repository must belong to the profile being published. Given explicitly,
+# a repository from the tree of another profile (<profile>/_BE/...) would
+# otherwise go to the remote path of this one -- for a releng repository,
+# with PROFILE unset, into the paths the stable line updates from.
+_repo_profile=$(cd "${REPO}" && pwd -P | sed -n 's|.*/\([^/]*\)/_BE/.*|\1|p')
+if [ -n "${_repo_profile}" ] && [ "${_repo_profile}" != "${PROFILE}" ]; then
+    echo "${REPO} is in the tree of profile ${_repo_profile}, not ${PROFILE}: set PROFILE=${_repo_profile} and give its remote path" >&2
+    exit 1
+fi
+
 # Inside the repository the directory is named after the ABI (FreeBSD:15:amd64),
 # and inside it are the builds with a latest symlink pointing at the current one.
 ABI_DIR=$(find "${REPO}" -maxdepth 1 -mindepth 1 -type d | head -1)

@@ -58,18 +58,30 @@ track() {
     return 0
 }
 
-# The branch value for the repository with the given name in repos.pyd
+# The branch value for the repository with the given name in repos.pyd. A
+# value of the form ${VAR} (the os branch: the profiles share repos.pyd and
+# set it in env.pyd) is looked up in env.pyd next to repos.pyd. Anything that
+# cannot be resolved prints nothing, and the caller reports it.
 repo_branch() {
     python3 - "$REPOS" "$1" <<'PY'
-import re, sys
+import os, re, sys
 text = open(sys.argv[1], encoding="utf-8").read()
 name = sys.argv[2]
 for block in text.split("repos +="):
     if f'"name": "{name}"' in block:
         m = re.search(r'"branch":\s*"([^"]+)"', block)
-        if m:
-            print(m.group(1))
+        if not m:
             break
+        value = m.group(1)
+        var = re.fullmatch(r"\$\{(\w+)\}", value)
+        if var:
+            env = os.path.join(os.path.dirname(sys.argv[1]), "env.pyd")
+            envtext = open(env, encoding="utf-8").read()
+            m = re.search(r'^' + var.group(1) + r'\s*=\s*"([^"]+)"', envtext, re.M)
+            value = m.group(1) if m else ""
+        if value and "$" not in value:
+            print(value)
+        break
 PY
 }
 
@@ -77,6 +89,12 @@ PY
 watch_base() {
     local _branch _ours _theirs
     _branch=$(repo_branch os)
+    if [ -z "$_branch" ]; then
+        # Not a network failure: the profile itself cannot be read, and a
+        # silent skip here would stop the watch on stable/15 unnoticed.
+        note "  -> cannot read the os branch from $REPOS"
+        return
+    fi
     _ours=$(git ls-remote https://github.com/bsdnas/os.git "refs/heads/${_branch}" 2>/dev/null | cut -f1)
     _theirs=$(git ls-remote https://github.com/freebsd/freebsd-src.git refs/heads/stable/15 2>/dev/null | cut -f1)
 

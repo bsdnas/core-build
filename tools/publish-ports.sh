@@ -51,7 +51,8 @@ usage() {
 [ $# -ge 1 ] || usage
 
 TARGET="$1"
-if [ -z "${2:-}" ] && [ "${PROFILE:-freenas}" != freenas ]; then
+PROFILE="${PROFILE:-freenas}"
+if [ -z "${2:-}" ] && [ "${PROFILE}" != freenas ]; then
     echo "profile ${PROFILE}: give the remote path explicitly, the default belongs to the freenas profile" >&2
     exit 1
 fi
@@ -65,6 +66,16 @@ if [ -z "${REPO}" ]; then
 fi
 
 [ -d "${REPO}" ] || { echo "no repository: ${REPO}" >&2; exit 1; }
+
+# The repository must belong to the profile being published. Given explicitly,
+# a repository from the tree of another profile (<profile>/_BE/...) would
+# otherwise go to the remote path of this one -- for a releng repository,
+# with PROFILE unset, into the paths the stable line updates from.
+_repo_profile=$(cd "${REPO}" && pwd -P | sed -n 's|.*/\([^/]*\)/_BE/.*|\1|p')
+if [ -n "${_repo_profile}" ] && [ "${_repo_profile}" != "${PROFILE}" ]; then
+    echo "${REPO} is in the tree of profile ${_repo_profile}, not ${PROFILE}: set PROFILE=${_repo_profile} and give its remote path" >&2
+    exit 1
+fi
 
 # Poudriere switches `.latest` to a new build when one finishes, and `All`
 # and the catalogue in REPO follow it. The build to publish is therefore
