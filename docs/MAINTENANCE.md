@@ -88,6 +88,12 @@ of `arcconf`, `megacli` and `tw_cli` vanished both from the vendors and from
 `distcache.FreeBSD.org`. When the quarter changes, the build may fail exactly
 like that — this is not a breakage of the build system.
 
+The `nas_ports` overlay in the middleware replaces an upstream port directory
+as a whole, so a copy kept there hides every later upstream change to that
+port. `net/libpfctl` is such a copy, taken from ports main because 2026Q2 has
+no distfile for 15.1: once the quarterly branch we build from lists 15.1 in
+its `distinfo`, delete the copy.
+
 ### A new OpenZFS has been released
 
 The middleware contains a ready-made helper:
