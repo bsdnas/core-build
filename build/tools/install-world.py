@@ -43,9 +43,17 @@ installkernel = import_function('build-os', 'installkernel')
 # not installed into a storage system (verified by comparing the files of the
 # installed system against the contents of the packages), and the set-*
 # metapackages pull exactly those in.
+#
+# FreeBSD-zfs-dev: we build WITHOUT_ZFS (the ZFS userland comes from ports),
+# yet a 15.1-RELEASE tree still packages libspl, which DTrace needs, into
+# FreeBSD-zfs-lib and FreeBSD-zfs-dev. The main FreeBSD-zfs package is empty
+# and therefore not created, while FreeBSD-zfs-dev depends on it, so pkg
+# refuses the whole install. installworld has already laid out its two files
+# (libspl.a and the libspl.so link); stable/15 does not package them at all.
 PKGBASE_EXCLUDE = (
     'FreeBSD-src', 'FreeBSD-src-sys',
     'FreeBSD-clang', 'FreeBSD-clang-dev', 'FreeBSD-lld', 'FreeBSD-lldb',
+    'FreeBSD-zfs-dev',
 )
 
 
