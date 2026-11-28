@@ -54,14 +54,19 @@ When the base moves to the next FreeBSD version (`REVISION` in
 as its release and the ports take `OSREL` from it, so a stale value builds
 the ports for an older release than the base they run on.
 
-The releng line has a base of its own: branch `base/releng-15.1`, the same
-patch set on top of `releng/15.1`. It follows its release branch the same way
-(`git rebase --onto up/releng/15.1 <previous-base> base/releng-15.1`) — that is
-how errata and security fixes reach it — and it is built with
-`make PROFILE=releng-15.1`.
+Each releng line has a base of its own: branch `base/releng-15.1` or
+`base/releng-15.2`, the same patch set on top of `releng/15.1` or
+`releng/15.2`. It follows its release branch the same way
+(`git rebase --onto up/releng/15.2 <previous-base> base/releng-15.2`) — that is
+how release candidates, errata and security fixes reach it — and it is built
+with `make PROFILE=releng-15.2`. While a release branch is at its release
+candidates, `FREEBSD_RELEASE_VERSION` of its profile names the candidate
+(`15.2-RC1`) and moves with `BRANCH` in `sys/conf/newvers.sh`.
 
-The two bases do not carry identical commits. When `base/releng-15.1` was cut
-(2026-11-07):
+`base/releng-15.2` carries the same commits as `base/stable-15`: it was cut
+on 2026-11-27, the day `base/stable-15` moved to 15.2-STABLE, and
+`releng/15.2` had branched from `stable/15` three weeks earlier.
+`base/releng-15.1` does not. When it was cut (2026-11-07):
 
 * `ctld: change configuration live` was taken in the variant written for
   `releng/15.0`, because the ctld of `stable/15` has moved on; the lines it
@@ -70,7 +75,7 @@ The two bases do not carry identical commits. When `base/releng-15.1` was cut
   the `packages/` layout of `stable/15`, and `releng/15.1` still builds base
   packages from `release/packages`.
 
-A change to the patch set goes to both bases.
+A change to the patch set goes to every base: base/stable-15 and each base/releng-*.
 
 ### A security advisory has been published
 
