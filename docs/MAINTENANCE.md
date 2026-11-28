@@ -48,6 +48,12 @@ different place.
 After the rebase — a full build and `tools/acceptance.sh install`, otherwise
 the rebase is pointless.
 
+When the base moves to the next FreeBSD version (`REVISION` in
+`sys/conf/newvers.sh`), set `FREEBSD_RELEASE_VERSION` in
+`build/profiles/freenas/env.pyd` to match. The ports jail reports that value
+as its release and the ports take `OSREL` from it, so a stale value builds
+the ports for an older release than the base they run on.
+
 The releng line has a base of its own: branch `base/releng-15.1`, the same
 patch set on top of `releng/15.1`. It follows its release branch the same way
 (`git rebase --onto up/releng/15.1 <previous-base> base/releng-15.1`) — that is
@@ -91,8 +97,8 @@ like that — this is not a breakage of the build system.
 The `nas_ports` overlay in the middleware replaces an upstream port directory
 as a whole, so a copy kept there hides every later upstream change to that
 port. `net/libpfctl` is such a copy, taken from ports main because 2026Q2 has
-no distfile for 15.1: once the quarterly branch we build from lists 15.1 in
-its `distinfo`, delete the copy.
+no distfile for 15.1 or 15.2: once the quarterly branch we build from lists
+the versions of all our lines in its `distinfo`, delete the copy.
 
 ### A new OpenZFS has been released
 
